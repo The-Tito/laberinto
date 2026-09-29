@@ -494,6 +494,13 @@ button {
   border-width: 1px;
 }
 
+/* La pista pide atención una sola vez, al tercer fallo: está viva, por eso lima. */
+.boton.resaltado {
+  background: var(--lima);
+  border-width: 2px;
+  box-shadow: 3px 3px 0 var(--tinta);
+}
+
 .separador {
   flex: 1;
 }
@@ -576,6 +583,18 @@ button {
 
 .puerta {
   margin: 0;
+}
+
+/* Empujón y pistas: separados del mensaje con una regla fina, para que no se
+   lean como parte del error. */
+.nota-consola {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px dashed var(--hairline);
+}
+
+.consola.error .nota-consola {
+  border-top-color: rgba(233, 233, 231, 0.35);
 }
 
 .enlace {
@@ -760,6 +779,7 @@ button {
         <button class="boton" id="correr">Correr</button>
         <button class="boton" id="lento">Cámara lenta</button>
         <button class="boton boton-fantasma" id="reiniciar">Reiniciar</button>
+        <button class="boton boton-fantasma" id="pista-btn" type="button">¿Atorado? Pista</button>
         <div class="separador"></div>
         <div class="marcador" id="marcador"></div>
       </div>
@@ -1391,6 +1411,13 @@ const NIVELES = [
     titulo: 'Pasillo recto',
     descubrimiento: 'El bucle repetir',
     pista: 'Seis pasos hasta la meta. Se puede en dos bloques.',
+    // Pistas escalonadas (CAMBIOS-cohorte-0 §7b, textos de docs/PISTAS.md):
+    // pregunta que hace mirar → concepto → estructura con huecos.
+    pistas: [
+      '¿Qué acción repites una y otra vez para llegar a la meta? ¿Cuántas veces?',
+      'Cuando algo se repite igual, hay un comando para decirlo una sola vez: repetir. Búscalo en el panel.',
+      'repetir (___) { ___ }',
+    ],
     mapa: mapa(`
       #########
       #S.....M#
@@ -1410,6 +1437,11 @@ const NIVELES = [
     titulo: 'Forma de L',
     descubrimiento: 'Los giros, y repetir más de una vez',
     pista: 'El camino da vuelta. ¿Cuántos pasos antes de girar?',
+    pistas: [
+      'Imagina que tú eres el personaje y estás adentro del laberinto. Cuando llegues a la esquina, ¿hacia qué lado giras tú? No pienses en la pantalla.',
+      'Girar no te mueve de casilla: solo cambia hacia dónde miras. Después de girar, avanzar() te lleva hacia tu nuevo "enfrente".',
+      'repetir (___) { avanzar(); } → girar______(); → repetir (___) { avanzar(); }',
+    ],
     mapa: mapa(`
       #######
       #S....#
@@ -1437,6 +1469,11 @@ repetir (4) {
     titulo: 'Zigzag',
     descubrimiento: 'mientras — el programa averigua solo cuántos pasos dar',
     pista: 'Los tramos miden distinto. Contar pasos ya no sirve.',
+    pistas: [
+      'Si contar ya no sirve, ¿qué podría preguntarse el personaje en cada paso para saber si puede seguir?',
+      'caminoLibre() contesta sí o no. Con mientras, el personaje avanza mientras haya camino, sin que tú cuentes nada.',
+      'El camino repite un patrón: avanzar hasta la pared → girar a la derecha → avanzar hasta la pared → girar a la izquierda. repetir (___) { mientras (___) { avanzar(); } girar______(); ... }',
+    ],
     mapa: mapa(`
       ##########
       #S...#####
@@ -1471,6 +1508,11 @@ repetir (4) {
     titulo: 'Laberinto',
     descubrimiento: 'si / sino, y combinar estructuras',
     pista: 'Hay callejones sin salida. Una regla sencilla los resuelve todos.',
+    pistas: [
+      'Si estuvieras en un laberinto de verdad con los ojos cerrados, ¿qué regla seguirías con una mano en la pared para no perderte?',
+      'Regla de la mano derecha: si a tu derecha hay camino, gira a la derecha y avanza. Si no, y enfrente hay camino, avanza. Si tampoco, gira a la izquierda. Para elegir entre caminos se usa si / sino.',
+      'repetir (40) { si (caminoLibreDerecha()) { ___ } sino { si (___) { ___ } sino { ___ } } }',
+    ],
     mapa: mapa(`
       #########
       #S#.....#
@@ -1504,6 +1546,11 @@ repetir (4) {
     titulo: 'BONUS · Laberinto aleatorio',
     descubrimiento: 'Un programa que resuelve problemas que su autor nunca vio',
     pista: 'Otro laberinto cada vez que corres. Contar pasos ya no es opción.',
+    pistas: [
+      '¿Qué parte de tu programa del nivel 4 dependía de ese mapa exacto?',
+      'El 40 del nivel 4 era una apuesta. repetirHastaLaMeta repite lo necesario, ni más ni menos.',
+      'Tu regla del nivel 4 ya funciona aquí. Solo cambia el bloque de afuera: repetirHastaLaMeta { ___ }',
+    ],
     esBonus: true,
     aleatorio: true,
     generarMapa: () => generarLaberinto({ celdasAncho: 5, celdasAlto: 5 }),
@@ -2764,6 +2811,8 @@ let corridasBonus = 0; // para bonus-5-corridas
 // Un solo contador por nivel: errores y corridas sin meta suman igual. Al tercero
 // es cuando alguien empieza a atorarse de verdad (CAMBIOS-cohorte-0 §3).
 const fallosPorNivel = new Map();
+const pistasVistas = new Map(); // nivel → cuántas pistas ha abierto
+let nodoPista = null; // la pista en consola, para cambiarla sin borrar el error
 
 // --- Dibujo ---------------------------------------------------------------
 
@@ -2809,6 +2858,7 @@ function cargarNivel(numero, { conservarBorrador = true } = {}) {
 
   paleta.mostrar(nivel.permitidos, nivel.esBonus ? ['repetirHastaLaMeta'] : []);
   pintarNavegacion();
+  $('pista-btn').classList.remove('resaltado');
 
   editor.limpiarResaltado();
   editor.valor = borradores.get(nivel.numero) ?? '';
@@ -2860,6 +2910,8 @@ function prepararMundo() {
 function fijarBotones(corriendo, cual) {
   $('correr').disabled = corriendo;
   $('lento').disabled = corriendo;
+  // Una pista pedida a media corrida la borraría el mensaje final.
+  $('pista-btn').disabled = corriendo;
   $('correr').classList.toggle('corriendo', corriendo && cual === 'correr');
   $('lento').classList.toggle('corriendo', corriendo && cual === 'lento');
 }
@@ -2977,10 +3029,46 @@ function reportarFallo(fallo) {
   contarFallo();
 }
 
+// Se llama DESPUÉS de escribir el mensaje del fallo: el empujón va como anexo
+// debajo de ese mensaje, y el siguiente escribir() lo borra.
 function contarFallo() {
   const fallos = (fallosPorNivel.get(nivel.numero) ?? 0) + 1;
   fallosPorNivel.set(nivel.numero, fallos);
-  if (fallos === 3) metricas.registrarUnaVez(`n${nivel.numero}-3-fallos`);
+  // El contador no se reinicia: el empujón sale una vez por nivel y por sesión.
+  if (fallos !== 3) return;
+
+  metricas.registrarUnaVez(`n${nivel.numero}-3-fallos`);
+  // La frase que el SPEC §10 le da al guía: enseña a depurar, no sólo a pasar.
+  const empujon = document.createElement('p');
+  empujon.className = 'nota-consola';
+  empujon.textContent =
+    '¿Y si lo corres en Cámara lenta? Mira en qué línea el personaje hace algo que no esperabas.';
+  consola.agregar(empujon);
+  $('pista-btn').classList.add('resaltado');
+}
+
+// --- Pistas escalonadas (CAMBIOS-cohorte-0 §7b) -----------------------------
+//
+// No se ofrecen antes de que hagan falta (SPEC §10): el botón siempre está, pero
+// sólo se resalta al tercer fallo. Cada toque abre una más, de menos a más.
+
+function mostrarPista() {
+  $('pista-btn').classList.remove('resaltado');
+
+  const vistas = Math.min((pistasVistas.get(nivel.numero) ?? 0) + 1, nivel.pistas.length);
+  const yaEranTodas = pistasVistas.get(nivel.numero) === nivel.pistas.length;
+  pistasVistas.set(nivel.numero, vistas);
+  metricas.registrarUnaVez(`n${nivel.numero}-pista-${vistas}`);
+
+  const texto = `Pista ${vistas} de ${nivel.pistas.length} · ${nivel.pistas[vistas - 1]}`;
+  // Debajo del mensaje actual, sin borrar el error que están leyendo.
+  if (!nodoPista?.isConnected) {
+    nodoPista = document.createElement('p');
+    nodoPista.className = 'nota-consola';
+    consola.agregar(nodoPista);
+  }
+  nodoPista.textContent = yaEranTodas ? `Esas son todas las pistas de este nivel. ${texto}` : texto;
+  editor.enfocar();
 }
 
 // --- Aviso en pantallas angostas (CAMBIOS-cohorte-0 §7) -------------------
@@ -3005,6 +3093,8 @@ $('copiar-link').addEventListener('click', async () => {
 });
 
 // --- Controles ------------------------------------------------------------
+
+$('pista-btn').addEventListener('click', mostrarPista);
 
 // Link permanente al formulario (CAMBIOS-cohorte-0 §6): también quien abandona
 // debe poder opinar, y es justo quien más información da.
