@@ -62,7 +62,7 @@ button {
   height: 100vh;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   gap: 12px;
 }
 
@@ -604,6 +604,23 @@ button {
   color: var(--tinta);
 }
 
+/* --- Pie ---------------------------------------------------------------- */
+
+/* Discreto a propósito: dice qué se mide, sin competir con el juego. */
+.pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--gris);
+}
+
+.pie .enlace {
+  color: var(--tinta);
+}
+
 /* --- Pantallas angostas -------------------------------------------------- */
 
 @media (max-width: 1080px) {
@@ -695,6 +712,14 @@ button {
       </div>
 
       <div class="consola" id="consola">Escribe tu programa y dale a Correr.</div>
+
+      <footer class="pie">
+        <span>Sin cuentas ni cookies. Contamos visitas de forma anónima para mejorar el juego.</span>
+        <span aria-hidden="true">·</span>
+        <a class="enlace" id="opinion" target="_blank" rel="noopener">¿Qué te pareció?</a>
+        <span aria-hidden="true">·</span>
+        <span>Hecho por @_antonio.selvas</span>
+      </footer>
     </div>
     <script>
 (() => {
@@ -2906,6 +2931,11 @@ function contarFallo() {
 }
 
 // --- Controles ------------------------------------------------------------
+
+// Link permanente al formulario (CAMBIOS-cohorte-0 §6): también quien abandona
+// debe poder opinar, y es justo quien más información da.
+$('opinion').href = URL_FORMULARIO;
+$('opinion').addEventListener('click', () => metricas.registrarUnaVez('feedback-clic'));
 
 $('correr').addEventListener('click', () => correr(VELOCIDAD_NORMAL, 'correr'));
 $('lento').addEventListener('click', () => correr(VELOCIDAD_LENTA, 'lento'));
