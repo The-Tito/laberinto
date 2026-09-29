@@ -1,0 +1,2651 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Laberinto</title>
+    <style>
+/* ==========================================================================
+   LABERINTO — sistema visual
+   Brutalismo suizo: hueso y tinta, reglas negras, cero radios.
+   El lima NO es decoración: marca únicamente lo que está vivo — el robot, la
+   línea que se está ejecutando, el botón corriendo, la meta alcanzada.
+   ========================================================================== */
+
+:root {
+  --hueso: #e9e9e7;
+  --papel: #f4f4f2;
+  --tinta: #111111;
+  --lima: #c6f135;
+  --gris: #8a8a85;
+  --hairline: rgba(17, 17, 17, 0.18);
+
+  --texto: 'Helvetica Neue', Helvetica, 'Arial Nova', Arial, sans-serif;
+  --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, 'DejaVu Sans Mono',
+    Consolas, monospace;
+
+  --borde: 2px solid var(--tinta);
+  --sombra: 4px 4px 0 var(--tinta);
+  --linea-alto: 26px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--hueso);
+  /* Retícula de puntos: textura de papel milimétrico, no decoración vistosa. */
+  background-image: radial-gradient(var(--hairline) 1px, transparent 1px);
+  background-size: 22px 22px;
+  color: var(--tinta);
+  font-family: var(--texto);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* --- Estructura ---------------------------------------------------------- */
+
+.marco {
+  height: 100vh;
+  padding: 14px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 12px;
+}
+
+/* Entrada escalonada: una sola secuencia al cargar, no micro-animaciones sueltas. */
+.marco > * {
+  animation: entrar 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.marco > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+.marco > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+.marco > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marco > * {
+    animation: none;
+  }
+}
+
+/* --- Barra superior ------------------------------------------------------ */
+
+.barra {
+  display: flex;
+  align-items: stretch;
+  border: var(--borde);
+  background: var(--papel);
+  box-shadow: var(--sombra);
+}
+
+.marca {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  padding: 10px 16px;
+  background: var(--tinta);
+  color: var(--hueso);
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.marca::after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  margin-left: 10px;
+  background: var(--lima);
+}
+
+.niveles {
+  display: flex;
+  border-left: var(--borde);
+}
+
+.ficha-nivel {
+  width: 46px;
+  border: 0;
+  border-right: 1px solid var(--hairline);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: background 120ms, color 120ms;
+}
+
+.ficha-nivel:hover:not(:disabled) {
+  background: var(--tinta);
+  color: var(--hueso);
+}
+
+.ficha-nivel[aria-current='true'] {
+  background: var(--tinta);
+  color: var(--lima);
+}
+
+.ficha-nivel.bonus {
+  font-size: 11px;
+}
+
+.encabezado-nivel {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 0 18px;
+  border-left: var(--borde);
+  min-width: 0;
+}
+
+.encabezado-nivel h1 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+}
+
+.descubrimiento {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--gris);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Tablero de tres columnas -------------------------------------------- */
+
+.tablero {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.05fr) minmax(360px, 1fr) 260px;
+  gap: 12px;
+  min-height: 0;
+}
+
+.panel {
+  border: var(--borde);
+  background: var(--papel);
+  box-shadow: var(--sombra);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.etiqueta {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+  border-bottom: var(--borde);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: var(--tinta);
+  flex: 0 0 auto;
+}
+
+.etiqueta .nota {
+  color: var(--gris);
+  letter-spacing: 0.08em;
+  font-weight: 400;
+}
+
+/* --- Mapa ---------------------------------------------------------------- */
+
+.lienzo-caja {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+#mapa {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  image-rendering: pixelated;
+}
+
+.pista {
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--gris);
+  flex: 0 0 auto;
+}
+
+/* --- Editor -------------------------------------------------------------- */
+
+.editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: var(--linea-alto);
+}
+
+.gutter {
+  flex: 0 0 auto;
+  padding: 12px 10px 12px 12px;
+  text-align: right;
+  color: var(--gris);
+  background: rgba(17, 17, 17, 0.035);
+  border-right: 1px solid var(--hairline);
+  user-select: none;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.gutter span {
+  display: block;
+  height: var(--linea-alto);
+  line-height: var(--linea-alto);
+  transition: color 90ms;
+}
+
+.gutter span.activa {
+  color: var(--tinta);
+  font-weight: 700;
+}
+
+.area {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* La banda de la línea en ejecución: lo que el spec §7 llama la feature que
+   más vale de la lista. */
+.banda {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--linea-alto);
+  background: var(--lima);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-100px);
+}
+
+.banda.visible {
+  opacity: 1;
+}
+
+/* La línea donde se detuvo va marcada, NO rellena: el espejo del código se pinta
+   encima de la banda, así que un relleno de tinta esconde el código justo en la
+   línea que más falta les hace leer. */
+.banda.error {
+  background: rgba(17, 17, 17, 0.09);
+  box-shadow:
+    inset 0 2px 0 var(--tinta),
+    inset 0 -2px 0 var(--tinta);
+}
+
+.espejo,
+#codigo {
+  margin: 0;
+  padding: 12px 14px;
+  border: 0;
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: 0;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+.espejo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--tinta);
+}
+
+#codigo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--tinta);
+  resize: none;
+  outline: none;
+}
+
+#codigo::selection {
+  background: rgba(17, 17, 17, 0.22);
+}
+
+.tok-clave {
+  font-weight: 700;
+}
+.tok-sensor {
+  border-bottom: 2px solid var(--hairline);
+}
+.tok-numero {
+  background: rgba(17, 17, 17, 0.09);
+}
+.tok-signo,
+.tok-comentario {
+  color: var(--gris);
+}
+
+/* --- Panel de comandos --------------------------------------------------- */
+
+.comandos {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.grupo {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--gris);
+  margin: 8px 0 2px;
+}
+
+.grupo:first-child {
+  margin-top: 0;
+}
+
+.comando {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--tinta);
+  background: var(--papel);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.35;
+  white-space: pre;
+  transition: background 100ms, color 100ms, transform 100ms;
+}
+
+.comando small {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--gris);
+  letter-spacing: 0.01em;
+  white-space: normal;
+}
+
+.comando:hover {
+  background: var(--tinta);
+  color: var(--hueso);
+  transform: translate(-2px, -2px);
+  box-shadow: 2px 2px 0 var(--tinta);
+}
+
+.comando:hover small {
+  color: var(--lima);
+}
+
+.comando:active {
+  transform: translate(0, 0);
+  box-shadow: none;
+}
+
+.comando.nuevo {
+  border-width: 2px;
+  box-shadow: 3px 3px 0 var(--lima);
+}
+
+/* --- Controles ----------------------------------------------------------- */
+
+.controles {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  border: var(--borde);
+  background: var(--papel);
+  box-shadow: var(--sombra);
+  padding: 10px;
+}
+
+.boton {
+  border: var(--borde);
+  background: var(--papel);
+  padding: 10px 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: 3px 3px 0 var(--tinta);
+  transition: transform 90ms, box-shadow 90ms, background 90ms, color 90ms;
+}
+
+.boton:hover:not(:disabled) {
+  background: var(--tinta);
+  color: var(--hueso);
+}
+
+.boton:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+.boton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.boton.corriendo {
+  background: var(--lima);
+  color: var(--tinta);
+}
+
+.boton-fantasma {
+  box-shadow: none;
+  border-width: 1px;
+}
+
+.separador {
+  flex: 1;
+}
+
+/* Marcador de golf: los bloques como cuadros que se llenan contra el par. */
+.marcador {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.cuadros {
+  display: flex;
+  gap: 3px;
+}
+
+.cuadro {
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--tinta);
+}
+
+.cuadro.lleno {
+  background: var(--tinta);
+}
+
+.cuadro.excedido {
+  background: var(--gris);
+  border-color: var(--gris);
+}
+
+.cuenta {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cuenta.en-par {
+  background: var(--lima);
+  padding: 2px 6px;
+}
+
+/* --- Consola ------------------------------------------------------------- */
+
+.consola {
+  border: var(--borde);
+  background: var(--papel);
+  box-shadow: var(--sombra);
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.45;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.consola::before {
+  content: '▸';
+  color: var(--gris);
+  flex: 0 0 auto;
+}
+
+.consola.error {
+  background: var(--tinta);
+  color: var(--hueso);
+}
+
+.consola.error::before {
+  content: '▪';
+  color: var(--lima);
+}
+
+.consola.exito {
+  background: var(--lima);
+}
+
+.consola.exito::before {
+  content: '★';
+  color: var(--tinta);
+}
+
+/* --- Pantallas angostas -------------------------------------------------- */
+
+@media (max-width: 1080px) {
+  body {
+    overflow: auto;
+  }
+
+  .marco {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .tablero {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-editor .editor {
+    min-height: 300px;
+  }
+
+  .panel-comandos .comandos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+
+  .grupo {
+    grid-column: 1 / -1;
+  }
+}
+    </style>
+  </head>
+  <body>
+    <div class="marco">
+      <header class="barra">
+        <div class="marca">LABERINTO</div>
+        <nav class="niveles" id="niveles" aria-label="Niveles"></nav>
+        <div class="encabezado-nivel">
+          <h1 id="titulo-nivel">Pasillo recto</h1>
+          <p class="descubrimiento" id="descubrimiento"></p>
+        </div>
+      </header>
+
+      <main class="tablero">
+        <section class="panel panel-mapa">
+          <div class="etiqueta">
+            <span id="etiqueta-mapa">Mapa</span>
+            <span class="nota" id="nota-mapa"></span>
+          </div>
+          <div class="lienzo-caja">
+            <canvas id="mapa"></canvas>
+          </div>
+          <p class="pista" id="pista"></p>
+        </section>
+
+        <section class="panel panel-editor">
+          <div class="etiqueta">
+            <span>Tu programa</span>
+            <span class="nota">se corre completo, no paso a paso</span>
+          </div>
+          <div class="editor">
+            <div class="gutter" id="gutter" aria-hidden="true"></div>
+            <div class="area">
+              <div class="banda" id="banda" aria-hidden="true"></div>
+              <pre class="espejo" id="espejo" aria-hidden="true"></pre>
+              <textarea
+                id="codigo"
+                spellcheck="false"
+                autocomplete="off"
+                autocapitalize="off"
+                autocorrect="off"
+                aria-label="Tu programa"
+              ></textarea>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel panel-comandos">
+          <div class="etiqueta"><span>Comandos</span></div>
+          <div class="comandos" id="comandos"></div>
+        </aside>
+      </main>
+
+      <div class="controles">
+        <button class="boton" id="correr">Correr</button>
+        <button class="boton" id="lento">Cámara lenta</button>
+        <button class="boton boton-fantasma" id="reiniciar">Reiniciar</button>
+        <div class="separador"></div>
+        <div class="marcador" id="marcador"></div>
+      </div>
+
+      <div class="consola" id="consola">Escribe tu programa y dale a Correr.</div>
+    </div>
+    <script>
+(() => {
+'use strict';
+
+// ======================================================================
+// src/lang/errors.js
+// ======================================================================
+const __mod_src_lang_errors_js = (() => {
+// Catálogo de errores.
+//
+// Regla del spec §6: todo mensaje apunta al código, nunca a la persona, y sugiere
+// la pregunta siguiente. Prohibido "error de sintaxis", stack traces, códigos de
+// error visibles e inglés.
+//
+// Los errores viajan como objetos { codigo, linea, mensaje }: la UI muestra el
+// mensaje, los tests afirman sobre el código y la línea.
+
+const CODIGOS = {
+  // Lectura del texto
+  SIMBOLO_DESCONOCIDO: 'SIMBOLO_DESCONOCIDO',
+  COMANDO_DESCONOCIDO: 'COMANDO_DESCONOCIDO',
+  COMANDO_BLOQUEADO: 'COMANDO_BLOQUEADO',
+
+  // Forma del programa
+  FALTA_PARENTESIS_CIERRE: 'FALTA_PARENTESIS_CIERRE',
+  FALTA_PARENTESIS_APERTURA: 'FALTA_PARENTESIS_APERTURA',
+  FALTAN_PARENTESIS_LLAMADA: 'FALTAN_PARENTESIS_LLAMADA',
+  FALTA_LLAVE_CIERRE: 'FALTA_LLAVE_CIERRE',
+  FALTA_LLAVE_APERTURA: 'FALTA_LLAVE_APERTURA',
+  SOBRA_LLAVE: 'SOBRA_LLAVE',
+  FALTA_PUNTO_Y_COMA: 'FALTA_PUNTO_Y_COMA',
+  FALTA_NUMERO: 'FALTA_NUMERO',
+  FALTA_PREGUNTA: 'FALTA_PREGUNTA',
+  ACCION_COMO_PREGUNTA: 'ACCION_COMO_PREGUNTA',
+  PREGUNTA_COMO_ACCION: 'PREGUNTA_COMO_ACCION',
+  SINO_SUELTO: 'SINO_SUELTO',
+  PROGRAMA_VACIO: 'PROGRAMA_VACIO',
+
+  // Ejecución
+  CHOQUE: 'CHOQUE',
+  LIMITE_PASOS: 'LIMITE_PASOS',
+};
+
+const MENSAJES = {
+  [CODIGOS.SIMBOLO_DESCONOCIDO]: ({ simbolo, linea }) =>
+    `No conozco el símbolo "${simbolo}" de la línea ${linea}. En este lenguaje no se usa.`,
+
+  [CODIGOS.COMANDO_DESCONOCIDO]: ({ nombre, linea, sugerencia }) =>
+    sugerencia
+      ? `No conozco "${nombre}" en la línea ${linea}. ¿Querías escribir "${sugerencia}"?`
+      : `No conozco "${nombre}". Los comandos disponibles están en el panel de la derecha.`,
+
+  [CODIGOS.COMANDO_BLOQUEADO]: ({ nombre, linea }) =>
+    `"${nombre}" todavía no se desbloquea en este nivel (línea ${linea}). Los comandos disponibles están en el panel de la derecha.`,
+
+  [CODIGOS.FALTA_PARENTESIS_CIERRE]: ({ linea }) =>
+    `Falta cerrar un paréntesis en la línea ${linea}.`,
+
+  [CODIGOS.FALTA_PARENTESIS_APERTURA]: ({ nombre, linea }) =>
+    `Falta abrir un paréntesis después de "${nombre}" en la línea ${linea}.`,
+
+  [CODIGOS.FALTAN_PARENTESIS_LLAMADA]: ({ nombre, linea }) =>
+    `A "${nombre}" le faltan los paréntesis en la línea ${linea}. Se escribe ${nombre}();`,
+
+  [CODIGOS.FALTA_LLAVE_CIERRE]: ({ linea }) =>
+    `Falta cerrar con } la llave que abriste en la línea ${linea}.`,
+
+  [CODIGOS.FALTA_LLAVE_APERTURA]: ({ nombre, linea }) =>
+    `Falta abrir la llave { de "${nombre}" en la línea ${linea}.`,
+
+  [CODIGOS.SOBRA_LLAVE]: ({ linea }) =>
+    `Hay una llave } de más en la línea ${linea}: no quedó ninguna abierta.`,
+
+  [CODIGOS.FALTA_PUNTO_Y_COMA]: ({ linea }) =>
+    `Falta el punto y coma al final de la línea ${linea}.`,
+
+  [CODIGOS.FALTA_NUMERO]: ({ linea }) =>
+    `A "repetir" de la línea ${linea} le falta el número de veces. Se escribe repetir (4) { ... }`,
+
+  [CODIGOS.FALTA_PREGUNTA]: ({ nombre, linea }) =>
+    `A "${nombre}" de la línea ${linea} le falta la pregunta entre paréntesis. Por ejemplo: ${nombre} (caminoLibre()) { ... }`,
+
+  [CODIGOS.ACCION_COMO_PREGUNTA]: ({ nombre, linea }) =>
+    `"${nombre}" es una acción, no una pregunta. Dentro del paréntesis de la línea ${linea} va caminoLibre() o caminoLibreDerecha().`,
+
+  [CODIGOS.PREGUNTA_COMO_ACCION]: ({ nombre, linea }) =>
+    `"${nombre}" es una pregunta, no una acción. Va dentro de un "si" o un "mientras", como en la línea ${linea}: si (${nombre}()) { ... }`,
+
+  [CODIGOS.SINO_SUELTO]: ({ linea }) =>
+    `El "sino" de la línea ${linea} no tiene un "si" antes.`,
+
+  [CODIGOS.PROGRAMA_VACIO]: () =>
+    `Todavía no hay programa. Usa los botones del panel de la derecha para escribir el primero.`,
+
+  [CODIGOS.CHOQUE]: ({ linea }) =>
+    `Chocaste en la línea ${linea} — ¿el camino seguía libre ahí?`,
+
+  [CODIGOS.LIMITE_PASOS]: ({ limite, estructura }) =>
+    estructura === 'repetirHastaLaMeta'
+      ? `Tu programa lleva ${limite} pasos y sigue. ¿El robot llega a la meta con esas instrucciones?`
+      : `Tu programa lleva ${limite} pasos y sigue. ¿La condición del mientras alguna vez se vuelve falsa?`,
+};
+
+/** Construye un error del catálogo. `datos.linea` viaja aparte para la UI. */
+function error(codigo, datos = {}) {
+  const construir = MENSAJES[codigo];
+  if (!construir) throw new Error(`Código de error sin mensaje: ${codigo}`);
+  return {
+    esErrorDelJuego: true,
+    codigo,
+    linea: datos.linea ?? null,
+    mensaje: construir(datos),
+  };
+}
+
+/** Distingue un error nuestro de un fallo real del programa. */
+function esErrorDelJuego(valor) {
+  return Boolean(valor && valor.esErrorDelJuego);
+}
+return { CODIGOS, error, esErrorDelJuego };
+})();
+
+// ======================================================================
+// src/lang/tokenizer.js
+// ======================================================================
+const __mod_src_lang_tokenizer_js = (() => {
+// Texto → tokens. Cada token recuerda su línea, porque todos los mensajes de
+// error del spec §6 nombran una línea.
+
+const { CODIGOS, error } = __mod_src_lang_errors_js;
+
+const TIPOS = {
+  NOMBRE: 'NOMBRE',
+  NUMERO: 'NUMERO',
+  ABRE_PAREN: 'ABRE_PAREN',
+  CIERRA_PAREN: 'CIERRA_PAREN',
+  ABRE_LLAVE: 'ABRE_LLAVE',
+  CIERRA_LLAVE: 'CIERRA_LLAVE',
+  PUNTO_Y_COMA: 'PUNTO_Y_COMA',
+  FIN: 'FIN',
+};
+
+const SIMBOLOS = {
+  '(': TIPOS.ABRE_PAREN,
+  ')': TIPOS.CIERRA_PAREN,
+  '{': TIPOS.ABRE_LLAVE,
+  '}': TIPOS.CIERRA_LLAVE,
+  ';': TIPOS.PUNTO_Y_COMA,
+};
+
+const esLetra = (c) => /[A-Za-zÁÉÍÓÚÑáéíóúñ_]/.test(c);
+const esDigito = (c) => c >= '0' && c <= '9';
+
+function tokenizar(texto) {
+  const tokens = [];
+  let i = 0;
+  let linea = 1;
+
+  while (i < texto.length) {
+    const c = texto[i];
+
+    if (c === '\n') {
+      linea++;
+      i++;
+      continue;
+    }
+
+    if (c === ' ' || c === '\t' || c === '\r') {
+      i++;
+      continue;
+    }
+
+    // Comentarios de línea: aparecen en la hoja impresa como anotaciones.
+    if (c === '/' && texto[i + 1] === '/') {
+      while (i < texto.length && texto[i] !== '\n') i++;
+      continue;
+    }
+
+    if (SIMBOLOS[c]) {
+      tokens.push({ tipo: SIMBOLOS[c], valor: c, linea });
+      i++;
+      continue;
+    }
+
+    if (esLetra(c)) {
+      let inicio = i;
+      while (i < texto.length && (esLetra(texto[i]) || esDigito(texto[i]))) i++;
+      tokens.push({ tipo: TIPOS.NOMBRE, valor: texto.slice(inicio, i), linea });
+      continue;
+    }
+
+    if (esDigito(c)) {
+      let inicio = i;
+      while (i < texto.length && esDigito(texto[i])) i++;
+      tokens.push({
+        tipo: TIPOS.NUMERO,
+        valor: Number(texto.slice(inicio, i)),
+        linea,
+      });
+      continue;
+    }
+
+    // Cualquier otra cosa. Cae aquí, entre otros, el "!" que el spec §2 prohíbe.
+    throw error(CODIGOS.SIMBOLO_DESCONOCIDO, { simbolo: c, linea });
+  }
+
+  tokens.push({ tipo: TIPOS.FIN, valor: null, linea });
+  return tokens;
+}
+return { TIPOS, tokenizar };
+})();
+
+// ======================================================================
+// src/lang/parser.js
+// ======================================================================
+const __mod_src_lang_parser_js = (() => {
+// Tokens → AST.
+//
+// El parser conoce el set de comandos permitidos en el nivel actual: así
+// `repetirHastaLaMeta` sólo existe a partir del nivel 5 (spec §4) sin necesitar
+// una gramática distinta por nivel.
+
+const { TIPOS, tokenizar } = __mod_src_lang_tokenizer_js;
+const { CODIGOS, error } = __mod_src_lang_errors_js;
+
+const ACCIONES = ['avanzar', 'girarDerecha', 'girarIzquierda'];
+const SENSORES = ['caminoLibre', 'caminoLibreDerecha'];
+const ESTRUCTURAS = ['repetir', 'si', 'mientras', 'repetirHastaLaMeta'];
+
+/** Los 8 comandos del spec §2. `repetirHastaLaMeta` se suma en el nivel 5. */
+const COMANDOS_BASE = [...ACCIONES, ...SENSORES, 'repetir', 'si', 'mientras'];
+const COMANDOS_TODOS = [...COMANDOS_BASE, 'repetirHastaLaMeta'];
+
+const VOCABULARIO = [...COMANDOS_TODOS, 'sino'];
+
+/** Distancia de edición acotada: sólo se usa para sugerir, no para decidir. */
+function distancia(a, b) {
+  const filas = a.length + 1;
+  const columnas = b.length + 1;
+  let previa = Array.from({ length: columnas }, (_, j) => j);
+  for (let i = 1; i < filas; i++) {
+    const actual = [i];
+    for (let j = 1; j < columnas; j++) {
+      const costo = a[i - 1] === b[j - 1] ? 0 : 1;
+      actual[j] = Math.min(previa[j] + 1, actual[j - 1] + 1, previa[j - 1] + costo);
+    }
+    previa = actual;
+  }
+  return previa[columnas - 1];
+}
+
+/**
+ * Busca el comando más parecido a lo que escribieron. Un chavo de 13 que escribe
+ * "Avanzar" o "avansar" merece que le señalen el comando, no que le digan que no
+ * existe.
+ */
+function sugerir(nombre, permitidos) {
+  const candidatos = VOCABULARIO.filter((p) => permitidos.has(p) || p === 'sino');
+  let mejor = null;
+  let mejorDistancia = Infinity;
+  for (const candidato of candidatos) {
+    const d = distancia(nombre.toLowerCase(), candidato.toLowerCase());
+    if (d < mejorDistancia) {
+      mejorDistancia = d;
+      mejor = candidato;
+    }
+  }
+  const umbral = nombre.length <= 4 ? 1 : 2;
+  return mejorDistancia <= umbral ? mejor : null;
+}
+
+class Parser {
+  constructor(tokens, permitidos) {
+    this.tokens = tokens;
+    this.i = 0;
+    this.permitidos = permitidos;
+  }
+
+  get actual() {
+    return this.tokens[this.i];
+  }
+
+  avanzar() {
+    return this.tokens[this.i++];
+  }
+
+  aceptar(tipo) {
+    if (this.actual.tipo === tipo) return this.avanzar();
+    return null;
+  }
+
+  exigir(tipo, codigo, datos = {}) {
+    const token = this.aceptar(tipo);
+    if (!token) throw error(codigo, { linea: this.actual.linea, ...datos });
+    return token;
+  }
+
+  programa() {
+    const cuerpo = this.sentenciasHasta(TIPOS.FIN);
+    if (cuerpo.length === 0) throw error(CODIGOS.PROGRAMA_VACIO);
+    return { tipo: 'programa', cuerpo };
+  }
+
+  sentenciasHasta(tipoFinal) {
+    const sentencias = [];
+    while (this.actual.tipo !== tipoFinal && this.actual.tipo !== TIPOS.FIN) {
+      sentencias.push(this.sentencia());
+    }
+    return sentencias;
+  }
+
+  sentencia() {
+    const token = this.actual;
+
+    if (token.tipo === TIPOS.CIERRA_LLAVE) {
+      throw error(CODIGOS.SOBRA_LLAVE, { linea: token.linea });
+    }
+
+    if (token.tipo !== TIPOS.NOMBRE) {
+      throw error(CODIGOS.COMANDO_DESCONOCIDO, {
+        nombre: String(token.valor ?? ''),
+        linea: token.linea,
+        sugerencia: null,
+      });
+    }
+
+    const nombre = token.valor;
+
+    if (nombre === 'sino') throw error(CODIGOS.SINO_SUELTO, { linea: token.linea });
+
+    if (VOCABULARIO.includes(nombre) && !this.permitidos.has(nombre)) {
+      throw error(CODIGOS.COMANDO_BLOQUEADO, { nombre, linea: token.linea });
+    }
+
+    if (nombre === 'repetir') return this.repetir();
+    if (nombre === 'mientras') return this.bucleCondicional('mientras');
+    if (nombre === 'si') return this.condicional();
+    if (nombre === 'repetirHastaLaMeta') return this.repetirHastaLaMeta();
+    if (ACCIONES.includes(nombre)) return this.accion();
+
+    if (SENSORES.includes(nombre)) {
+      throw error(CODIGOS.PREGUNTA_COMO_ACCION, { nombre, linea: token.linea });
+    }
+
+    throw error(CODIGOS.COMANDO_DESCONOCIDO, {
+      nombre,
+      linea: token.linea,
+      sugerencia: sugerir(nombre, this.permitidos),
+    });
+  }
+
+  accion() {
+    const token = this.avanzar();
+    const nombre = token.valor;
+    if (!this.aceptar(TIPOS.ABRE_PAREN)) {
+      throw error(CODIGOS.FALTAN_PARENTESIS_LLAMADA, { nombre, linea: token.linea });
+    }
+    this.exigir(TIPOS.CIERRA_PAREN, CODIGOS.FALTA_PARENTESIS_CIERRE);
+    this.exigir(TIPOS.PUNTO_Y_COMA, CODIGOS.FALTA_PUNTO_Y_COMA, { linea: token.linea });
+    return { tipo: 'accion', nombre, linea: token.linea };
+  }
+
+  repetir() {
+    const token = this.avanzar();
+    if (!this.aceptar(TIPOS.ABRE_PAREN)) {
+      throw error(CODIGOS.FALTA_PARENTESIS_APERTURA, { nombre: 'repetir', linea: token.linea });
+    }
+    const numero = this.aceptar(TIPOS.NUMERO);
+    if (!numero) throw error(CODIGOS.FALTA_NUMERO, { linea: token.linea });
+    this.exigir(TIPOS.CIERRA_PAREN, CODIGOS.FALTA_PARENTESIS_CIERRE);
+    const cuerpo = this.bloque('repetir');
+    return { tipo: 'repetir', veces: numero.valor, cuerpo, linea: token.linea };
+  }
+
+  bucleCondicional(nombre) {
+    const token = this.avanzar();
+    const condicion = this.condicionEntreParentesis(nombre, token.linea);
+    const cuerpo = this.bloque(nombre);
+    return { tipo: 'mientras', condicion, cuerpo, linea: token.linea };
+  }
+
+  condicional() {
+    const token = this.avanzar();
+    const condicion = this.condicionEntreParentesis('si', token.linea);
+    const cuerpo = this.bloque('si');
+
+    let sino = null;
+    if (this.actual.tipo === TIPOS.NOMBRE && this.actual.valor === 'sino') {
+      this.avanzar();
+      sino = this.bloque('sino');
+    }
+    return { tipo: 'si', condicion, cuerpo, sino, linea: token.linea };
+  }
+
+  repetirHastaLaMeta() {
+    const token = this.avanzar();
+    const cuerpo = this.bloque('repetirHastaLaMeta');
+    return { tipo: 'repetirHastaLaMeta', cuerpo, linea: token.linea };
+  }
+
+  condicionEntreParentesis(nombreEstructura, lineaEstructura) {
+    if (!this.aceptar(TIPOS.ABRE_PAREN)) {
+      throw error(CODIGOS.FALTA_PREGUNTA, { nombre: nombreEstructura, linea: lineaEstructura });
+    }
+    const condicion = this.sensor();
+    this.exigir(TIPOS.CIERRA_PAREN, CODIGOS.FALTA_PARENTESIS_CIERRE);
+    return condicion;
+  }
+
+  sensor() {
+    const token = this.actual;
+    if (token.tipo !== TIPOS.NOMBRE) {
+      throw error(CODIGOS.FALTA_PREGUNTA, { nombre: 'si', linea: token.linea });
+    }
+    const nombre = token.valor;
+
+    if (ACCIONES.includes(nombre)) {
+      throw error(CODIGOS.ACCION_COMO_PREGUNTA, { nombre, linea: token.linea });
+    }
+    if (!SENSORES.includes(nombre)) {
+      throw error(CODIGOS.COMANDO_DESCONOCIDO, {
+        nombre,
+        linea: token.linea,
+        sugerencia: sugerir(nombre, this.permitidos),
+      });
+    }
+    if (!this.permitidos.has(nombre)) {
+      throw error(CODIGOS.COMANDO_BLOQUEADO, { nombre, linea: token.linea });
+    }
+
+    this.avanzar();
+    if (!this.aceptar(TIPOS.ABRE_PAREN)) {
+      throw error(CODIGOS.FALTAN_PARENTESIS_LLAMADA, { nombre, linea: token.linea });
+    }
+    this.exigir(TIPOS.CIERRA_PAREN, CODIGOS.FALTA_PARENTESIS_CIERRE);
+    return { tipo: 'sensor', nombre, linea: token.linea };
+  }
+
+  bloque(nombreEstructura) {
+    const abre = this.aceptar(TIPOS.ABRE_LLAVE);
+    if (!abre) {
+      throw error(CODIGOS.FALTA_LLAVE_APERTURA, {
+        nombre: nombreEstructura,
+        linea: this.actual.linea,
+      });
+    }
+    const cuerpo = this.sentenciasHasta(TIPOS.CIERRA_LLAVE);
+    if (!this.aceptar(TIPOS.CIERRA_LLAVE)) {
+      // La línea que importa es la de la llave que quedó abierta, no el final del archivo.
+      throw error(CODIGOS.FALTA_LLAVE_CIERRE, { linea: abre.linea });
+    }
+    return cuerpo;
+  }
+}
+
+/**
+ * @param {string} texto
+ * @param {{ permitidos?: string[] }} opciones comandos desbloqueados en el nivel
+ * @returns {{ tipo: 'programa', cuerpo: object[] }}
+ */
+function parsear(texto, { permitidos = COMANDOS_TODOS } = {}) {
+  const tokens = tokenizar(texto);
+  return new Parser(tokens, new Set(permitidos)).programa();
+}
+return { ACCIONES, SENSORES, ESTRUCTURAS, COMANDOS_BASE, COMANDOS_TODOS, parsear };
+})();
+
+// ======================================================================
+// src/game/generator.js
+// ======================================================================
+const __mod_src_game_generator_js = (() => {
+// Generador de laberintos: recursive backtracker (spec §4, nivel 5).
+//
+// Produce laberintos PERFECTOS — exactamente un camino entre cualesquiera dos
+// celdas, sin ciclos. Ese es el requisito duro: la regla de la mano derecha sólo
+// funciona siempre si las paredes forman una sola pieza conectada, y un ciclo
+// suelto rompería el algoritmo en vivo, enfrente de ellos (spec §8.3).
+//
+// El azar entra por parámetro para que un laberinto pueda congelarse con semilla
+// (así se eligió el del nivel 4) y para que los tests sean reproducibles.
+
+/** PRNG pequeño y determinista. No hay dependencias en este proyecto. */
+function crearAleatorio(semilla) {
+  let estado = semilla >>> 0;
+  return function aleatorio() {
+    estado = (estado + 0x6d2b79f5) >>> 0;
+    let t = estado;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * @param {{ celdasAncho?: number, celdasAlto?: number, aleatorio?: () => number }} opciones
+ * @returns {string[]} filas del mapa en ASCII, con S en una esquina y M en la opuesta
+ */
+function generarLaberinto({
+  celdasAncho = 5,
+  celdasAlto = 5,
+  aleatorio = Math.random,
+} = {}) {
+  const ancho = celdasAncho * 2 + 1;
+  const alto = celdasAlto * 2 + 1;
+
+  // Todo pared; el algoritmo va tallando.
+  const grid = Array.from({ length: alto }, () => Array.from({ length: ancho }, () => '#'));
+
+  const enGrid = (cx, cy) => ({ x: cx * 2 + 1, y: cy * 2 + 1 });
+  const visitadas = Array.from({ length: celdasAlto }, () =>
+    Array.from({ length: celdasAncho }, () => false),
+  );
+
+  const vecinos = [
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+  ];
+
+  let cx = 0;
+  let cy = 0;
+  visitadas[cy][cx] = true;
+  const inicio = enGrid(cx, cy);
+  grid[inicio.y][inicio.x] = '.';
+
+  const pila = [[cx, cy]];
+
+  while (pila.length > 0) {
+    [cx, cy] = pila[pila.length - 1];
+
+    const disponibles = vecinos.filter(([dx, dy]) => {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      return (
+        nx >= 0 && nx < celdasAncho && ny >= 0 && ny < celdasAlto && !visitadas[ny][nx]
+      );
+    });
+
+    if (disponibles.length === 0) {
+      pila.pop();
+      continue;
+    }
+
+    const [dx, dy] = disponibles[Math.floor(aleatorio() * disponibles.length)];
+    const nx = cx + dx;
+    const ny = cy + dy;
+
+    // Tallar la celda nueva y el muro que la separaba de la actual.
+    const desde = enGrid(cx, cy);
+    const hasta = enGrid(nx, ny);
+    grid[hasta.y][hasta.x] = '.';
+    grid[desde.y + dy][desde.x + dx] = '.';
+
+    visitadas[ny][nx] = true;
+    pila.push([nx, ny]);
+  }
+
+  // Inicio pegado a la pared exterior (esquina), meta en la esquina opuesta.
+  const s = enGrid(0, 0);
+  const m = enGrid(celdasAncho - 1, celdasAlto - 1);
+  grid[s.y][s.x] = 'S';
+  grid[m.y][m.x] = 'M';
+
+  return grid.map((fila) => fila.join(''));
+}
+
+/**
+ * Celdas sin salida: sirven para elegir un laberinto que engañe de verdad
+ * (spec §4, nivel 4 pide al menos dos callejones que engañen).
+ */
+function contarCallejones(filas) {
+  let total = 0;
+  for (let y = 1; y < filas.length; y += 2) {
+    for (let x = 1; x < filas[y].length; x += 2) {
+      const salidas = [
+        [0, -1],
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+      ].filter(([dx, dy]) => filas[y + dy]?.[x + dx] !== '#').length;
+      if (salidas === 1) total++;
+    }
+  }
+  return total;
+}
+return { crearAleatorio, generarLaberinto, contarCallejones };
+})();
+
+// ======================================================================
+// src/game/levels.js
+// ======================================================================
+const __mod_src_game_levels_js = (() => {
+// Los cinco niveles (spec §4).
+//
+// Cada nivel existe para forzar UN descubrimiento. No hay niveles intermedios y
+// el orden no se toca: la rampa es el diseño.
+//
+// El mapa del nivel 4 está congelado como dato: se eligió con el generador
+// (semilla 16, 4×4 celdas) entre los que tienen más callejones que engañan, y se
+// pegó aquí. Un nivel fijo debe ser un dato, no una generación en tiempo de carga.
+
+const { COMANDOS_BASE, COMANDOS_TODOS } = __mod_src_lang_parser_js;
+const { generarLaberinto } = __mod_src_game_generator_js;
+
+const mapa = (texto) =>
+  texto
+    .trim()
+    .split('\n')
+    .map((fila) => fila.trim());
+
+const NIVELES = [
+  {
+    numero: 1,
+    titulo: 'Pasillo recto',
+    descubrimiento: 'El bucle repetir',
+    pista: 'Seis pasos hasta la meta. Se puede en dos bloques.',
+    mapa: mapa(`
+      #########
+      #S.....M#
+      #########
+    `),
+    par: 2,
+    ingenuo: 6,
+    limitePasos: 500,
+    permitidos: COMANDOS_BASE,
+    solucion: `repetir (6) {
+  avanzar();
+}`,
+  },
+
+  {
+    numero: 2,
+    titulo: 'Forma de L',
+    descubrimiento: 'Los giros, y repetir más de una vez',
+    pista: 'El camino da vuelta. ¿Cuántos pasos antes de girar?',
+    mapa: mapa(`
+      #######
+      #S....#
+      #####.#
+      #####.#
+      #####.#
+      #####M#
+      #######
+    `),
+    par: 5,
+    ingenuo: 9,
+    limitePasos: 500,
+    permitidos: COMANDOS_BASE,
+    solucion: `repetir (4) {
+  avanzar();
+}
+girarDerecha();
+repetir (4) {
+  avanzar();
+}`,
+  },
+
+  {
+    numero: 3,
+    titulo: 'Zigzag',
+    descubrimiento: 'mientras — el programa averigua solo cuántos pasos dar',
+    pista: 'Los tramos miden distinto. Contar pasos ya no sirve.',
+    mapa: mapa(`
+      ##########
+      #S...#####
+      ####.#####
+      ####...###
+      ######.###
+      ######...#
+      ########.#
+      ########M#
+      ##########
+    `),
+    // El spec publica par 6, pero su propia solución de referencia cuesta 7.
+    // El spec §8.2 resuelve el empate: "corrige el par, no la solución".
+    par: 7,
+    ingenuo: 13,
+    limitePasos: 500,
+    permitidos: COMANDOS_BASE,
+    solucion: `repetir (3) {
+  mientras (caminoLibre()) {
+    avanzar();
+  }
+  girarDerecha();
+  mientras (caminoLibre()) {
+    avanzar();
+  }
+  girarIzquierda();
+}`,
+  },
+
+  {
+    numero: 4,
+    titulo: 'Laberinto',
+    descubrimiento: 'si / sino, y combinar estructuras',
+    pista: 'Hay callejones sin salida. Una regla sencilla los resuelve todos.',
+    mapa: mapa(`
+      #########
+      #S#.....#
+      #.###.###
+      #...#...#
+      ###.###.#
+      #.#.#...#
+      #.#.#.#.#
+      #.....#M#
+      #########
+    `),
+    par: 8, // generoso a propósito: el óptimo conocido cuesta 7
+    limitePasos: 500,
+    permitidos: COMANDOS_BASE,
+    solucion: `repetir (40) {
+  si (caminoLibreDerecha()) {
+    girarDerecha();
+    avanzar();
+  } sino {
+    si (caminoLibre()) {
+      avanzar();
+    } sino {
+      girarIzquierda();
+    }
+  }
+}`,
+  },
+
+  {
+    numero: 5,
+    titulo: 'BONUS · Laberinto aleatorio',
+    descubrimiento: 'Un programa que resuelve problemas que su autor nunca vio',
+    pista: 'Otro laberinto cada vez que corres. Contar pasos ya no es opción.',
+    esBonus: true,
+    aleatorio: true,
+    generarMapa: () => generarLaberinto({ celdasAncho: 5, celdasAlto: 5 }),
+    par: 8,
+    limitePasos: 1500,
+    permitidos: COMANDOS_TODOS,
+    solucion: `repetirHastaLaMeta {
+  si (caminoLibreDerecha()) {
+    girarDerecha();
+    avanzar();
+  } sino {
+    si (caminoLibre()) {
+      avanzar();
+    } sino {
+      girarIzquierda();
+    }
+  }
+}`,
+  },
+];
+
+function nivelPorNumero(numero) {
+  return NIVELES.find((nivel) => nivel.numero === numero) ?? NIVELES[0];
+}
+
+/** El mapa del nivel: fijo, o recién generado si el nivel es aleatorio. */
+function mapaDelNivel(nivel) {
+  return nivel.aleatorio ? nivel.generarMapa() : nivel.mapa;
+}
+return { NIVELES, nivelPorNumero, mapaDelNivel };
+})();
+
+// ======================================================================
+// src/game/world.js
+// ======================================================================
+const __mod_src_game_world_js = (() => {
+// El mundo: retícula, robot y sensores. Sin una sola referencia al DOM, para que
+// los tests del spec §8 lo corran tal cual en Node.
+//
+// Notación del mapa (spec §4): '#' pared · '.' camino · 'S' inicio · 'M' meta.
+// El robot siempre empieza mirando al Este.
+
+const ESTE = 0;
+const SUR = 1;
+const OESTE = 2;
+const NORTE = 3;
+
+const DIRECCIONES = [
+  { dx: 1, dy: 0, nombre: 'este' },
+  { dx: 0, dy: 1, nombre: 'sur' },
+  { dx: -1, dy: 0, nombre: 'oeste' },
+  { dx: 0, dy: -1, nombre: 'norte' },
+];
+
+class Mundo {
+  /** @param {string[]} filas mapa en ASCII, una cadena por fila */
+  constructor(filas) {
+    this.filas = filas.map((fila) => fila.split(''));
+    this.alto = this.filas.length;
+    this.ancho = Math.max(...this.filas.map((fila) => fila.length));
+
+    this.inicio = this.buscar('S');
+    this.meta = this.buscar('M');
+    if (!this.inicio) throw new Error('El mapa no tiene inicio (S).');
+    if (!this.meta) throw new Error('El mapa no tiene meta (M).');
+
+    this.reiniciar();
+  }
+
+  /** Acepta el mapa como texto multilínea, que es como se lee en el spec. */
+  static desdeTexto(texto) {
+    const filas = texto
+      .trim()
+      .split('\n')
+      .map((fila) => fila.trim())
+      .filter((fila) => fila.length > 0);
+    return new Mundo(filas);
+  }
+
+  buscar(simbolo) {
+    for (let y = 0; y < this.filas.length; y++) {
+      const x = this.filas[y].indexOf(simbolo);
+      if (x !== -1) return { x, y };
+    }
+    return null;
+  }
+
+  reiniciar() {
+    this.x = this.inicio.x;
+    this.y = this.inicio.y;
+    this.direccion = ESTE;
+    this.pasosDados = 0;
+  }
+
+  celda(x, y) {
+    if (y < 0 || y >= this.alto) return '#';
+    const fila = this.filas[y];
+    if (x < 0 || x >= fila.length) return '#';
+    return fila[x];
+  }
+
+  esPared(x, y) {
+    return this.celda(x, y) === '#';
+  }
+
+  /** Casilla a la que apunta `direccion` desde la posición actual. */
+  casillaHacia(direccion) {
+    const { dx, dy } = DIRECCIONES[direccion];
+    return { x: this.x + dx, y: this.y + dy };
+  }
+
+  // --- Sensores (spec §3) --------------------------------------------------
+  // En positivo, siempre. La negación lógica es lo primero que tumba a un
+  // principiante, así que el lenguaje no la tiene (spec §2).
+
+  caminoLibre() {
+    const { x, y } = this.casillaHacia(this.direccion);
+    return !this.esPared(x, y);
+  }
+
+  caminoLibreDerecha() {
+    const { x, y } = this.casillaHacia((this.direccion + 1) % 4);
+    return !this.esPared(x, y);
+  }
+
+  // --- Acciones ------------------------------------------------------------
+
+  /** @returns {boolean} false si había pared: el intérprete decide qué hacer. */
+  avanzar() {
+    if (!this.caminoLibre()) return false;
+    const { x, y } = this.casillaHacia(this.direccion);
+    this.x = x;
+    this.y = y;
+    this.pasosDados++;
+    return true;
+  }
+
+  girarDerecha() {
+    this.direccion = (this.direccion + 1) % 4;
+  }
+
+  girarIzquierda() {
+    this.direccion = (this.direccion + 3) % 4;
+  }
+
+  enMeta() {
+    return this.x === this.meta.x && this.y === this.meta.y;
+  }
+
+  clonar() {
+    const copia = new Mundo(this.filas.map((fila) => fila.join('')));
+    copia.x = this.x;
+    copia.y = this.y;
+    copia.direccion = this.direccion;
+    copia.pasosDados = this.pasosDados;
+    return copia;
+  }
+}
+return { ESTE, SUR, OESTE, NORTE, DIRECCIONES, Mundo };
+})();
+
+// ======================================================================
+// src/lang/blocks.js
+// ======================================================================
+const __mod_src_lang_blocks_js = (() => {
+// Conteo de bloques (spec §3).
+//
+// Se cuenta 1 por cada instrucción o cabecera de estructura; las llaves de cierre
+// no cuentan. Se cuenta sobre el AST y no sobre el texto: así nadie gana jugando
+// con el formato, que es exactamente lo que el spec busca evitar.
+//
+// `sino` cuenta 0: es parte de la estructura `si`, no una estructura aparte. Con
+// esa regla la solución de mano derecha cuesta 7 y el par 8 del nivel 4 queda
+// "generoso a propósito" como dice el spec §4.
+
+function contarBloques(nodo) {
+  if (!nodo) return 0;
+
+  if (nodo.tipo === 'programa') return contarLista(nodo.cuerpo);
+
+  switch (nodo.tipo) {
+    case 'accion':
+      return 1;
+    case 'repetir':
+    case 'repetirHastaLaMeta':
+      return 1 + contarLista(nodo.cuerpo);
+    case 'mientras':
+      return 1 + contarLista(nodo.cuerpo);
+    case 'si':
+      return 1 + contarLista(nodo.cuerpo) + contarLista(nodo.sino);
+    default:
+      return 0;
+  }
+}
+
+function contarLista(sentencias) {
+  if (!sentencias) return 0;
+  return sentencias.reduce((total, sentencia) => total + contarBloques(sentencia), 0);
+}
+return { contarBloques };
+})();
+
+// ======================================================================
+// src/runtime/interpreter.js
+// ======================================================================
+const __mod_src_runtime_interpreter_js = (() => {
+// El intérprete es un generador: hace `yield` con la línea ANTES de ejecutarla.
+//
+// Esa sola decisión resuelve cinco requisitos del spec de una vez:
+//   · resaltar la línea en ejecución (§7)  → la línea viene en el evento
+//   · cámara lenta a 400 ms (§7)           → drenar con setTimeout
+//   · correr rápido (§7)                   → el mismo drenado, más seguido
+//   · límite de pasos / bucle infinito (§6) → contar eventos
+//   · tests sin navegador (§8)             → drenar con un while
+//
+// La ejecución se detiene en cuanto el robot pisa la meta: lo que pase después
+// no debería poder convertir una victoria en un choque.
+
+const { CODIGOS, error } = __mod_src_lang_errors_js;
+
+const META_ALCANZADA = Symbol('meta alcanzada');
+
+const LIMITE_PASOS_POR_DEFECTO = 500;
+
+/**
+ * @param {object} ast programa parseado
+ * @param {import('../game/world.js').Mundo} mundo
+ * @param {{ limitePasos?: number }} opciones
+ * @yields {{ linea: number, tipo: 'accion'|'pregunta'|'bucle' }}
+ * @returns {{ llego: boolean, ultimaLinea: number|null, pasos: number }}
+ */
+function* ejecutar(ast, mundo, { limitePasos = LIMITE_PASOS_POR_DEFECTO } = {}) {
+  const ctx = {
+    mundo,
+    limitePasos,
+    pasos: 0,
+    ultimaLinea: null,
+    bucleActual: 'mientras',
+  };
+
+  try {
+    yield* ejecutarLista(ast.cuerpo, ctx);
+  } catch (e) {
+    if (e !== META_ALCANZADA) throw e;
+  }
+
+  return { llego: mundo.enMeta(), ultimaLinea: ctx.ultimaLinea, pasos: ctx.pasos };
+}
+
+function* paso(ctx, linea, tipo) {
+  ctx.pasos++;
+  if (ctx.pasos > ctx.limitePasos) {
+    throw error(CODIGOS.LIMITE_PASOS, {
+      limite: ctx.limitePasos,
+      estructura: ctx.bucleActual,
+      linea,
+    });
+  }
+  ctx.ultimaLinea = linea;
+  yield { linea, tipo };
+}
+
+function* ejecutarLista(sentencias, ctx) {
+  for (const sentencia of sentencias) {
+    yield* ejecutarSentencia(sentencia, ctx);
+  }
+}
+
+function* ejecutarSentencia(sentencia, ctx) {
+  switch (sentencia.tipo) {
+    case 'accion':
+      return yield* ejecutarAccion(sentencia, ctx);
+    case 'repetir':
+      return yield* ejecutarRepetir(sentencia, ctx);
+    case 'mientras':
+      return yield* ejecutarMientras(sentencia, ctx);
+    case 'si':
+      return yield* ejecutarSi(sentencia, ctx);
+    case 'repetirHastaLaMeta':
+      return yield* ejecutarRepetirHastaLaMeta(sentencia, ctx);
+    default:
+      throw new Error(`Sentencia sin ejecutar: ${sentencia.tipo}`);
+  }
+}
+
+function* ejecutarAccion(sentencia, ctx) {
+  yield* paso(ctx, sentencia.linea, 'accion');
+
+  if (sentencia.nombre === 'avanzar') {
+    if (!ctx.mundo.avanzar()) {
+      throw error(CODIGOS.CHOQUE, { linea: sentencia.linea });
+    }
+    if (ctx.mundo.enMeta()) throw META_ALCANZADA;
+    return;
+  }
+
+  if (sentencia.nombre === 'girarDerecha') return ctx.mundo.girarDerecha();
+  if (sentencia.nombre === 'girarIzquierda') return ctx.mundo.girarIzquierda();
+
+  throw new Error(`Acción sin implementar: ${sentencia.nombre}`);
+}
+
+function evaluar(condicion, mundo) {
+  if (condicion.nombre === 'caminoLibre') return mundo.caminoLibre();
+  if (condicion.nombre === 'caminoLibreDerecha') return mundo.caminoLibreDerecha();
+  throw new Error(`Sensor sin implementar: ${condicion.nombre}`);
+}
+
+function* ejecutarRepetir(sentencia, ctx) {
+  const anterior = ctx.bucleActual;
+  ctx.bucleActual = 'repetir';
+  for (let i = 0; i < sentencia.veces; i++) {
+    // Se resalta la cabecera en cada vuelta: ver el bucle "regresar arriba" es
+    // justamente lo que hace que el bucle deje de ser magia.
+    yield* paso(ctx, sentencia.linea, 'bucle');
+    yield* ejecutarLista(sentencia.cuerpo, ctx);
+  }
+  ctx.bucleActual = anterior;
+}
+
+function* ejecutarMientras(sentencia, ctx) {
+  const anterior = ctx.bucleActual;
+  ctx.bucleActual = 'mientras';
+  while (true) {
+    yield* paso(ctx, sentencia.linea, 'pregunta');
+    if (!evaluar(sentencia.condicion, ctx.mundo)) break;
+    yield* ejecutarLista(sentencia.cuerpo, ctx);
+  }
+  ctx.bucleActual = anterior;
+}
+
+function* ejecutarSi(sentencia, ctx) {
+  yield* paso(ctx, sentencia.linea, 'pregunta');
+  if (evaluar(sentencia.condicion, ctx.mundo)) {
+    yield* ejecutarLista(sentencia.cuerpo, ctx);
+  } else if (sentencia.sino) {
+    yield* ejecutarLista(sentencia.sino, ctx);
+  }
+}
+
+function* ejecutarRepetirHastaLaMeta(sentencia, ctx) {
+  const anterior = ctx.bucleActual;
+  ctx.bucleActual = 'repetirHastaLaMeta';
+  while (!ctx.mundo.enMeta()) {
+    yield* paso(ctx, sentencia.linea, 'bucle');
+    yield* ejecutarLista(sentencia.cuerpo, ctx);
+  }
+  ctx.bucleActual = anterior;
+}
+
+/**
+ * Drena el generador de un tirón. Es lo que usan los tests; la UI drena a mano
+ * para poder animar entre paso y paso.
+ */
+function ejecutarCompleto(ast, mundo, opciones) {
+  const corrida = ejecutar(ast, mundo, opciones);
+  let resultado = corrida.next();
+  while (!resultado.done) resultado = corrida.next();
+  return resultado.value;
+}
+return { LIMITE_PASOS_POR_DEFECTO, ejecutar, ejecutarCompleto };
+})();
+
+// ======================================================================
+// src/ui/editor.js
+// ======================================================================
+const __mod_src_ui_editor_js = (() => {
+// Editor: números de línea, resaltado de sintaxis y la banda de la línea que se
+// está ejecutando (spec §7).
+//
+// Es un <textarea> transparente encima de un <pre> espejo. Las líneas no se
+// parten nunca (white-space: pre), y por eso la banda puede calcularse con pura
+// aritmética: línea × alto de línea. Si las líneas se partieran, el número de la
+// izquierda y la banda dejarían de coincidir con lo que se ve.
+
+const CLAVES = ['repetirHastaLaMeta', 'repetir', 'mientras', 'sino', 'si'];
+const SENSORES = ['caminoLibreDerecha', 'caminoLibre'];
+const ACCIONES = ['avanzar', 'girarDerecha', 'girarIzquierda'];
+
+const PATRON = new RegExp(
+  [
+    '(\\/\\/[^\\n]*)',
+    `\\b(${CLAVES.join('|')})\\b`,
+    `\\b(${SENSORES.join('|')})\\b`,
+    `\\b(${ACCIONES.join('|')})\\b`,
+    '(\\d+)',
+    '([(){};])',
+  ].join('|'),
+  'g',
+);
+
+const escapar = (texto) =>
+  texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function colorear(texto) {
+  let salida = '';
+  let ultimo = 0;
+  for (const coincidencia of texto.matchAll(PATRON)) {
+    const [entero, comentario, clave, sensor, accion, numero, signo] = coincidencia;
+    salida += escapar(texto.slice(ultimo, coincidencia.index));
+    const clase = comentario
+      ? 'tok-comentario'
+      : clave
+        ? 'tok-clave'
+        : sensor
+          ? 'tok-sensor'
+          : accion
+            ? 'tok-accion'
+            : numero
+              ? 'tok-numero'
+              : 'tok-signo';
+    salida += `<span class="${clase}">${escapar(entero)}</span>`;
+    ultimo = coincidencia.index + entero.length;
+  }
+  salida += escapar(texto.slice(ultimo));
+  // El <pre> ignora un salto de línea final: se añade un espacio para que la
+  // última línea siga midiendo lo mismo que en el textarea.
+  return `${salida}\n `;
+}
+
+function crearEditor({ textarea, gutter, espejo, banda }) {
+  const raiz = getComputedStyle(document.documentElement);
+  const altoLinea = parseFloat(raiz.getPropertyValue('--linea-alto'));
+  const paddingSuperior = parseFloat(getComputedStyle(espejo).paddingTop);
+
+  let lineaResaltada = null;
+  let modoError = false;
+  const suscriptores = [];
+
+  function pintar() {
+    const texto = textarea.value;
+    espejo.innerHTML = colorear(texto);
+
+    const lineas = texto.split('\n').length;
+    if (gutter.childElementCount !== lineas) {
+      gutter.replaceChildren(
+        ...Array.from({ length: lineas }, (_, i) => {
+          const span = document.createElement('span');
+          span.textContent = String(i + 1);
+          return span;
+        }),
+      );
+      marcarGutter();
+    }
+    sincronizarScroll();
+  }
+
+  function marcarGutter() {
+    for (const [i, span] of [...gutter.children].entries()) {
+      span.classList.toggle('activa', i + 1 === lineaResaltada);
+    }
+  }
+
+  function sincronizarScroll() {
+    espejo.scrollTop = textarea.scrollTop;
+    espejo.scrollLeft = textarea.scrollLeft;
+    gutter.scrollTop = textarea.scrollTop;
+    colocarBanda();
+  }
+
+  function colocarBanda() {
+    if (lineaResaltada === null) {
+      banda.classList.remove('visible', 'error');
+      return;
+    }
+    const y = paddingSuperior + (lineaResaltada - 1) * altoLinea - textarea.scrollTop;
+    banda.style.transform = `translateY(${y}px)`;
+    banda.classList.toggle('error', modoError);
+    banda.classList.add('visible');
+  }
+
+  function notificar() {
+    for (const cb of suscriptores) cb(textarea.value);
+  }
+
+  textarea.addEventListener('input', () => {
+    pintar();
+    notificar();
+  });
+  textarea.addEventListener('scroll', sincronizarScroll);
+  window.addEventListener('resize', sincronizarScroll);
+
+  // Teclear no puede ser el cuello de botella (spec §2.5): el editor mantiene la
+  // indentación por su cuenta.
+  textarea.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Tab') {
+      evento.preventDefault();
+      insertar('  ');
+      return;
+    }
+    if (evento.key === 'Enter') {
+      evento.preventDefault();
+      const hasta = textarea.value.slice(0, textarea.selectionStart);
+      const lineaActual = hasta.slice(hasta.lastIndexOf('\n') + 1);
+      const sangria = lineaActual.match(/^[ \t]*/)[0];
+      const extra = lineaActual.trimEnd().endsWith('{') ? '  ' : '';
+      insertar(`\n${sangria}${extra}`);
+    }
+  });
+
+  /** Inserta en el cursor. La marca ‸ indica dónde queda el cursor al final. */
+  function insertar(plantilla) {
+    const inicio = textarea.selectionStart;
+    const fin = textarea.selectionEnd;
+    const texto = textarea.value;
+
+    const hasta = texto.slice(0, inicio);
+    const sangria = hasta.slice(hasta.lastIndexOf('\n') + 1).match(/^[ \t]*/)[0];
+
+    let cuerpo = plantilla.replace(/\n/g, `\n${sangria}`);
+    let desplazamiento = cuerpo.indexOf('‸');
+    if (desplazamiento === -1) desplazamiento = cuerpo.length;
+    else cuerpo = cuerpo.replace('‸', '');
+
+    textarea.value = texto.slice(0, inicio) + cuerpo + texto.slice(fin);
+    const caret = inicio + desplazamiento;
+    textarea.setSelectionRange(caret, caret);
+    textarea.focus();
+    pintar();
+    notificar();
+  }
+
+  pintar();
+
+  return {
+    get valor() {
+      return textarea.value;
+    },
+
+    set valor(nuevo) {
+      textarea.value = nuevo;
+      pintar();
+      notificar();
+    },
+
+    insertar,
+
+    resaltar(linea, { error = false } = {}) {
+      lineaResaltada = linea;
+      modoError = error;
+      marcarGutter();
+      colocarBanda();
+    },
+
+    limpiarResaltado() {
+      lineaResaltada = null;
+      modoError = false;
+      marcarGutter();
+      colocarBanda();
+    },
+
+    alCambiar(cb) {
+      suscriptores.push(cb);
+    },
+
+    enfocar() {
+      textarea.focus();
+    },
+  };
+}
+return { crearEditor };
+})();
+
+// ======================================================================
+// src/ui/renderer.js
+// ======================================================================
+const __mod_src_ui_renderer_js = (() => {
+// Dibujo del mapa en Canvas 2D (spec §7).
+//
+// Todo es bloque duro: sin esquinas redondeadas, sin degradados, sin suavizado.
+// La orientación del robot tiene que leerse de un vistazo desde el otro lado del
+// escritorio, así que es una cuña negra sobre lima, no un adorno.
+
+const { DIRECCIONES } = __mod_src_game_world_js;
+
+const MARGEN = 20; // espacio para la numeración del borde
+const CELDA_MAX = 64;
+const CELDA_MIN = 14;
+
+function crearRenderizador(canvas) {
+  const ctx = canvas.getContext('2d');
+  const estilo = getComputedStyle(document.documentElement);
+  const color = (nombre) => estilo.getPropertyValue(nombre).trim();
+
+  function medir(mundo) {
+    const caja = canvas.parentElement.getBoundingClientRect();
+    const disponibleAncho = Math.max(160, caja.width - 32) - MARGEN;
+    const disponibleAlto = Math.max(160, caja.height - 32) - MARGEN;
+    const celda = Math.floor(
+      Math.min(disponibleAncho / mundo.ancho, disponibleAlto / mundo.alto, CELDA_MAX),
+    );
+    return Math.max(CELDA_MIN, celda);
+  }
+
+  /**
+   * @param {import('../game/world.js').Mundo} mundo
+   * @param {{ recorrido?: Set<string>, llego?: boolean }} estado
+   */
+  function dibujar(mundo, estado = {}) {
+    const celda = medir(mundo);
+    const ancho = mundo.ancho * celda + MARGEN;
+    const alto = mundo.alto * celda + MARGEN;
+    const dpr = window.devicePixelRatio || 1;
+
+    if (canvas.width !== Math.round(ancho * dpr) || canvas.height !== Math.round(alto * dpr)) {
+      canvas.width = Math.round(ancho * dpr);
+      canvas.height = Math.round(alto * dpr);
+      canvas.style.width = `${ancho}px`;
+      canvas.style.height = `${alto}px`;
+    }
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, ancho, alto);
+
+    const tinta = color('--tinta');
+    const papel = color('--papel');
+    const hueso = color('--hueso');
+    const lima = color('--lima');
+    const gris = color('--gris');
+
+    dibujarNumeracion(mundo, celda, gris);
+
+    for (let y = 0; y < mundo.alto; y++) {
+      for (let x = 0; x < mundo.ancho; x++) {
+        const px = MARGEN + x * celda;
+        const py = MARGEN + y * celda;
+        const esPared = mundo.esPared(x, y);
+
+        if (esPared) {
+          ctx.fillStyle = tinta;
+          ctx.fillRect(px, py, celda, celda);
+          continue;
+        }
+
+        ctx.fillStyle = papel;
+        ctx.fillRect(px, py, celda, celda);
+
+        // Rastro: por dónde ya pasó. Sirve para depurar sin decir nada.
+        if (estado.recorrido?.has(`${x},${y}`)) {
+          ctx.fillStyle = 'rgba(17,17,17,0.10)';
+          ctx.fillRect(px, py, celda, celda);
+        }
+
+        // Punto de retícula: textura de papel milimétrico.
+        ctx.fillStyle = 'rgba(17,17,17,0.16)';
+        ctx.fillRect(px + celda / 2 - 1, py + celda / 2 - 1, 2, 2);
+      }
+    }
+
+    dibujarMeta(mundo, celda, { tinta, lima, hueso, llego: estado.llego });
+    dibujarRobot(mundo, celda, { tinta, lima });
+  }
+
+  function dibujarNumeracion(mundo, celda, gris) {
+    ctx.fillStyle = gris;
+    ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (let x = 0; x < mundo.ancho; x++) {
+      ctx.fillText(String(x), MARGEN + x * celda + celda / 2, MARGEN / 2);
+    }
+    for (let y = 0; y < mundo.alto; y++) {
+      ctx.fillText(String(y), MARGEN / 2, MARGEN + y * celda + celda / 2);
+    }
+  }
+
+  function dibujarMeta(mundo, celda, { tinta, lima, hueso, llego }) {
+    const px = MARGEN + mundo.meta.x * celda;
+    const py = MARGEN + mundo.meta.y * celda;
+
+    if (llego) {
+      ctx.fillStyle = lima;
+      ctx.fillRect(px, py, celda, celda);
+    }
+
+    // Diana de cuadros concéntricos: legible a cualquier tamaño de celda.
+    const paso = Math.max(2, Math.floor(celda / 8));
+    ctx.strokeStyle = tinta;
+    ctx.lineWidth = paso;
+    for (let i = 1; i <= 2; i++) {
+      const inset = paso * (i * 2 - 1);
+      ctx.strokeRect(px + inset, py + inset, celda - inset * 2, celda - inset * 2);
+    }
+    ctx.fillStyle = llego ? tinta : hueso;
+    ctx.fillRect(px + celda / 2 - paso, py + celda / 2 - paso, paso * 2, paso * 2);
+  }
+
+  function dibujarRobot(mundo, celda, { tinta, lima }) {
+    const cx = MARGEN + mundo.x * celda + celda / 2;
+    const cy = MARGEN + mundo.y * celda + celda / 2;
+    const lado = celda * 0.78;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    ctx.fillStyle = lima;
+    ctx.fillRect(-lado / 2, -lado / 2, lado, lado);
+    ctx.strokeStyle = tinta;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-lado / 2, -lado / 2, lado, lado);
+
+    // La cuña apunta a donde mira: 0 = Este, y de ahí en sentido horario.
+    ctx.rotate((mundo.direccion * Math.PI) / 2);
+    const r = lado * 0.32;
+    ctx.fillStyle = tinta;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(-r * 0.75, -r * 0.9);
+    ctx.lineTo(-r * 0.75, r * 0.9);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /** Nombre de la dirección, para la etiqueta del panel. */
+  function nombreDireccion(mundo) {
+    return DIRECCIONES[mundo.direccion].nombre;
+  }
+
+  return { dibujar, nombreDireccion };
+}
+return { crearRenderizador };
+})();
+
+// ======================================================================
+// src/ui/palette.js
+// ======================================================================
+const __mod_src_ui_palette_js = (() => {
+// Panel de comandos (spec §7). Doble función: acelera el tipeo — que a los 13
+// años es cuello de botella real — y es la documentación siempre visible.
+//
+// La marca ‸ de las plantillas indica dónde queda el cursor tras insertar.
+
+const COMANDOS = [
+  {
+    grupo: 'Acciones',
+    nombre: 'avanzar',
+    plantilla: 'avanzar();\n‸',
+    etiqueta: 'avanzar();',
+    ayuda: 'Un paso hacia donde estás mirando.',
+  },
+  {
+    grupo: 'Acciones',
+    nombre: 'girarDerecha',
+    plantilla: 'girarDerecha();\n‸',
+    etiqueta: 'girarDerecha();',
+    ayuda: 'Gira a la derecha sin moverte de la casilla.',
+  },
+  {
+    grupo: 'Acciones',
+    nombre: 'girarIzquierda',
+    plantilla: 'girarIzquierda();\n‸',
+    etiqueta: 'girarIzquierda();',
+    ayuda: 'Gira a la izquierda sin moverte de la casilla.',
+  },
+  {
+    grupo: 'Preguntas',
+    nombre: 'caminoLibre',
+    plantilla: 'caminoLibre()',
+    etiqueta: 'caminoLibre()',
+    ayuda: '¿Está libre la casilla de enfrente? Va dentro de un si o un mientras.',
+  },
+  {
+    grupo: 'Preguntas',
+    nombre: 'caminoLibreDerecha',
+    plantilla: 'caminoLibreDerecha()',
+    etiqueta: 'caminoLibreDerecha()',
+    ayuda: '¿Está libre la casilla de tu derecha?',
+  },
+  {
+    grupo: 'Estructuras',
+    nombre: 'repetir',
+    plantilla: 'repetir (4) {\n  ‸\n}\n',
+    etiqueta: 'repetir (4) {\n  \n}',
+    ayuda: 'Repite lo de adentro el número de veces que le pongas.',
+  },
+  {
+    grupo: 'Estructuras',
+    nombre: 'si',
+    plantilla: 'si (caminoLibre()) {\n  ‸\n} sino {\n  \n}\n',
+    etiqueta: 'si (caminoLibre()) {\n  \n} sino {\n  \n}',
+    ayuda: 'Una cosa u otra, según la respuesta a la pregunta.',
+  },
+  {
+    grupo: 'Estructuras',
+    nombre: 'mientras',
+    plantilla: 'mientras (caminoLibre()) {\n  ‸\n}\n',
+    etiqueta: 'mientras (caminoLibre()) {\n  \n}',
+    ayuda: 'Repite mientras la respuesta siga siendo sí.',
+  },
+  {
+    grupo: 'Estructuras',
+    nombre: 'repetirHastaLaMeta',
+    plantilla: 'repetirHastaLaMeta {\n  ‸\n}\n',
+    etiqueta: 'repetirHastaLaMeta {\n  \n}',
+    ayuda: 'Repite hasta que el robot pise la meta.',
+  },
+];
+
+function crearPaleta(contenedor, { alInsertar }) {
+  /**
+   * @param {string[]} permitidos comandos desbloqueados en el nivel
+   * @param {string[]} nuevos comandos que se acaban de desbloquear
+   */
+  function mostrar(permitidos, nuevos = []) {
+    const visibles = COMANDOS.filter((comando) => permitidos.includes(comando.nombre));
+    const nodos = [];
+    let grupoActual = null;
+
+    for (const comando of visibles) {
+      if (comando.grupo !== grupoActual) {
+        grupoActual = comando.grupo;
+        const titulo = document.createElement('div');
+        titulo.className = 'grupo';
+        titulo.textContent = grupoActual;
+        nodos.push(titulo);
+      }
+
+      const boton = document.createElement('button');
+      boton.className = 'comando';
+      boton.type = 'button';
+      boton.setAttribute('aria-label', `Insertar ${comando.nombre}`);
+      boton.title = comando.ayuda;
+      if (nuevos.includes(comando.nombre)) boton.classList.add('nuevo');
+
+      const codigo = document.createElement('span');
+      codigo.textContent = comando.etiqueta;
+      const ayuda = document.createElement('small');
+      ayuda.textContent = comando.ayuda;
+      boton.append(codigo, ayuda);
+
+      boton.addEventListener('click', () => alInsertar(comando.plantilla));
+      nodos.push(boton);
+    }
+
+    contenedor.replaceChildren(...nodos);
+  }
+
+  return { mostrar };
+}
+return { COMANDOS, crearPaleta };
+})();
+
+// ======================================================================
+// src/ui/hud.js
+// ======================================================================
+const __mod_src_ui_hud_js = (() => {
+// Marcador de bloques y consola de mensajes.
+//
+// El marcador es de golf, no de duelo (spec §5): se compite contra el par del
+// nivel, nunca contra el hermano. Por eso aquí no hay ni puede haber nada que
+// compare a los dos jugadores.
+
+function crearMarcador(contenedor) {
+  /**
+   * @param {number|null} bloques null mientras el programa no se puede leer
+   * @param {number} par
+   */
+  function mostrar(bloques, par) {
+    const cuadros = document.createElement('div');
+    cuadros.className = 'cuadros';
+
+    const total = Math.max(par, bloques ?? 0);
+    for (let i = 0; i < total; i++) {
+      const cuadro = document.createElement('span');
+      cuadro.className = 'cuadro';
+      if (bloques !== null && i < bloques) {
+        cuadro.classList.add(i < par ? 'lleno' : 'excedido');
+      }
+      cuadros.append(cuadro);
+    }
+
+    const cuenta = document.createElement('span');
+    cuenta.className = 'cuenta';
+    cuenta.textContent = `${bloques ?? '–'} / ${par}`;
+    if (bloques !== null && bloques <= par) cuenta.classList.add('en-par');
+
+    const rotulo = document.createElement('span');
+    rotulo.textContent = 'Bloques';
+
+    contenedor.replaceChildren(rotulo, cuadros, cuenta);
+  }
+
+  return { mostrar };
+}
+
+function crearConsola(elemento) {
+  function escribir(texto, tipo = 'normal') {
+    elemento.textContent = texto;
+    elemento.classList.toggle('error', tipo === 'error');
+    elemento.classList.toggle('exito', tipo === 'exito');
+  }
+
+  return { escribir };
+}
+return { crearMarcador, crearConsola };
+})();
+
+// ======================================================================
+// src/ui/runner.js
+// ======================================================================
+const __mod_src_ui_runner_js = (() => {
+// Scheduler: drena el generador del intérprete a la velocidad que le pidan.
+//
+// Toda la diferencia entre "Correr" y "Cámara lenta" está en un número (spec §7).
+// La cámara lenta es la herramienta de depuración de la sesión: cuando pregunten
+// "¿por qué no funciona?", la respuesta es correrlo lento y ver dónde se rompe.
+
+const VELOCIDAD_NORMAL = 45;
+const VELOCIDAD_LENTA = 400;
+
+// Tope de reloj para "Correr": pasado ese tiempo se drena el resto de un tirón y
+// se muestra el desenlace. Sin él, un bucle infinito tardaría medio minuto en dar
+// su mensaje — y el mensaje es justo lo que necesitan ver rápido.
+const TOPE_ANIMACION_MS = 3000;
+
+function crearCorredor() {
+  let temporizador = null;
+  let generadorActual = null;
+
+  function detener() {
+    clearTimeout(temporizador);
+    temporizador = null;
+    generadorActual = null;
+  }
+
+  /**
+   * @param {Generator} generador el del intérprete
+   * @param {{ intervalo: number, alPaso: Function, alFin: Function, alError: Function }} opciones
+   */
+  function correr(generador, { intervalo, tope = null, alPaso, alFin, alError }) {
+    detener();
+    generadorActual = generador;
+    const arranque = Date.now();
+
+    /** Consume lo que queda sin animar: sólo importa el desenlace. */
+    const drenar = () => {
+      while (true) {
+        let resultado;
+        try {
+          resultado = generador.next();
+        } catch (fallo) {
+          detener();
+          alError(fallo);
+          return;
+        }
+        if (resultado.done) {
+          detener();
+          alFin(resultado.value);
+          return;
+        }
+        alPaso(resultado.value, { animado: false });
+      }
+    };
+
+    const tick = () => {
+      if (generadorActual !== generador) return; // lo cancelaron a medio camino
+
+      let resultado;
+      try {
+        resultado = generador.next();
+      } catch (fallo) {
+        detener();
+        alError(fallo);
+        return;
+      }
+
+      if (resultado.done) {
+        detener();
+        alFin(resultado.value);
+        return;
+      }
+
+      // El evento llega ANTES de que la línea se ejecute: se resalta, y en el
+      // siguiente tick se ve su efecto. Es como se lee un depurador.
+      alPaso(resultado.value, { animado: true });
+
+      if (tope !== null && Date.now() - arranque > tope) {
+        drenar();
+        return;
+      }
+      temporizador = setTimeout(tick, intervalo);
+    };
+
+    tick();
+  }
+
+  return {
+    correr,
+    detener,
+    get activo() {
+      return generadorActual !== null;
+    },
+  };
+}
+return { VELOCIDAD_NORMAL, VELOCIDAD_LENTA, TOPE_ANIMACION_MS, crearCorredor };
+})();
+
+// ======================================================================
+// src/main.js
+// ======================================================================
+const __mod_src_main_js = (() => {
+// Cableado de la aplicación.
+//
+// El núcleo (lang/, runtime/, game/) no sabe que existe el DOM; este archivo es
+// el único que conoce a los dos lados.
+
+const { NIVELES, nivelPorNumero, mapaDelNivel } = __mod_src_game_levels_js;
+const { Mundo } = __mod_src_game_world_js;
+const { parsear } = __mod_src_lang_parser_js;
+const { contarBloques } = __mod_src_lang_blocks_js;
+const { esErrorDelJuego } = __mod_src_lang_errors_js;
+const { ejecutar } = __mod_src_runtime_interpreter_js;
+
+const { crearEditor } = __mod_src_ui_editor_js;
+const { crearRenderizador } = __mod_src_ui_renderer_js;
+const { crearPaleta } = __mod_src_ui_palette_js;
+const { crearMarcador, crearConsola } = __mod_src_ui_hud_js;
+const { crearCorredor, VELOCIDAD_NORMAL, VELOCIDAD_LENTA, TOPE_ANIMACION_MS } = __mod_src_ui_runner_js;
+
+const $ = (id) => document.getElementById(id);
+
+const editor = crearEditor({
+  textarea: $('codigo'),
+  gutter: $('gutter'),
+  espejo: $('espejo'),
+  banda: $('banda'),
+});
+const renderizador = crearRenderizador($('mapa'));
+const paleta = crearPaleta($('comandos'), { alInsertar: (plantilla) => editor.insertar(plantilla) });
+const marcador = crearMarcador($('marcador'));
+const consola = crearConsola($('consola'));
+const corredor = crearCorredor();
+
+const borradores = new Map(); // el programa de cada nivel se conserva al cambiar
+let nivel = NIVELES[0];
+let mundo = null;
+let recorrido = new Set();
+
+// --- Dibujo ---------------------------------------------------------------
+
+function redibujar(llego = false) {
+  renderizador.dibujar(mundo, { recorrido, llego });
+  $('nota-mapa').textContent = `${mundo.ancho}×${mundo.alto} · mira al ${renderizador.nombreDireccion(mundo)}`;
+}
+
+function marcarPosicion() {
+  recorrido.add(`${mundo.x},${mundo.y}`);
+}
+
+// --- Niveles --------------------------------------------------------------
+
+function pintarNavegacion() {
+  const fichas = NIVELES.map((n) => {
+    const boton = document.createElement('button');
+    boton.className = 'ficha-nivel';
+    boton.type = 'button';
+    if (n.esBonus) boton.classList.add('bonus');
+    boton.textContent = n.esBonus ? 'BONUS' : String(n.numero).padStart(2, '0');
+    boton.setAttribute('aria-current', String(n.numero === nivel.numero));
+    boton.title = `Nivel ${n.numero} · ${n.titulo}`;
+    boton.addEventListener('click', () => cargarNivel(n.numero));
+    return boton;
+  });
+  $('niveles').replaceChildren(...fichas);
+}
+
+function cargarNivel(numero, { conservarBorrador = true } = {}) {
+  if (mundo && conservarBorrador) borradores.set(nivel.numero, editor.valor);
+
+  corredor.detener();
+  nivel = nivelPorNumero(numero);
+  mundo = new Mundo(mapaDelNivel(nivel));
+  recorrido = new Set();
+  marcarPosicion();
+
+  $('titulo-nivel').textContent = nivel.titulo;
+  $('descubrimiento').textContent = nivel.descubrimiento;
+  $('pista').textContent = nivel.pista;
+  $('etiqueta-mapa').textContent = nivel.aleatorio ? 'Mapa · cambia en cada corrida' : 'Mapa';
+
+  paleta.mostrar(nivel.permitidos, nivel.esBonus ? ['repetirHastaLaMeta'] : []);
+  pintarNavegacion();
+
+  editor.limpiarResaltado();
+  editor.valor = borradores.get(nivel.numero) ?? '';
+
+  consola.escribir(
+    nivel.esBonus
+      ? 'Bonus: el laberinto cambia cada vez que corres. Se desbloqueó repetirHastaLaMeta.'
+      : `Nivel ${nivel.numero}. ${nivel.pista}`,
+  );
+
+  redibujar();
+  editor.enfocar();
+}
+
+// --- Marcador de bloques en vivo ------------------------------------------
+
+function actualizarMarcador() {
+  let bloques = null;
+  try {
+    bloques = contarBloques(parsear(editor.valor, { permitidos: nivel.permitidos }));
+  } catch {
+    // Mientras escriben, un programa a medias no es un error: sólo no se cuenta.
+    bloques = null;
+  }
+  marcador.mostrar(bloques, nivel.par);
+}
+
+editor.alCambiar(() => {
+  actualizarMarcador();
+  // En cuanto tocan el código, la marca de la corrida anterior ya no dice nada:
+  // se refiere a un programa que dejó de existir. El mensaje de la consola sí se
+  // queda, porque ese sigue sirviendo mientras lo arreglan.
+  editor.limpiarResaltado();
+});
+
+// --- Ejecución ------------------------------------------------------------
+
+function prepararMundo() {
+  // Spec §4: el nivel 5 estrena laberinto en cada corrida.
+  if (nivel.aleatorio) {
+    mundo = new Mundo(mapaDelNivel(nivel));
+  } else {
+    mundo.reiniciar();
+  }
+  recorrido = new Set();
+  marcarPosicion();
+}
+
+function fijarBotones(corriendo, cual) {
+  $('correr').disabled = corriendo;
+  $('lento').disabled = corriendo;
+  $('correr').classList.toggle('corriendo', corriendo && cual === 'correr');
+  $('lento').classList.toggle('corriendo', corriendo && cual === 'lento');
+}
+
+function correr(intervalo, cual) {
+  corredor.detener();
+  editor.limpiarResaltado();
+  prepararMundo();
+  redibujar();
+
+  let ast;
+  try {
+    ast = parsear(editor.valor, { permitidos: nivel.permitidos });
+  } catch (fallo) {
+    return reportarFallo(fallo);
+  }
+
+  const bloques = contarBloques(ast);
+  fijarBotones(true, cual);
+  consola.escribir('Corriendo… (Reiniciar lo detiene)');
+
+  corredor.correr(ejecutar(ast, mundo, { limitePasos: nivel.limitePasos }), {
+    intervalo,
+    // La cámara lenta no se acota: es la herramienta de depuración y ahí sí
+    // quieren ver cada paso. Para cortarla está Reiniciar, que nunca se apaga.
+    tope: cual === 'correr' ? TOPE_ANIMACION_MS : null,
+    alPaso: (evento, { animado }) => {
+      marcarPosicion();
+      if (!animado) return;
+      editor.resaltar(evento.linea);
+      redibujar();
+    },
+    alFin: (resultado) => {
+      fijarBotones(false);
+      marcarPosicion();
+      redibujar(resultado.llego);
+
+      if (resultado.llego) {
+        editor.limpiarResaltado();
+        consola.escribir(mensajeDeVictoria(bloques), 'exito');
+      } else {
+        // Que vean DÓNDE se detuvo, no sólo que se detuvo (spec §6).
+        editor.resaltar(resultado.ultimaLinea, { error: true });
+        consola.escribir(
+          `Tu programa terminó en la línea ${resultado.ultimaLinea} y el robot no llegó a la meta. ¿Qué le faltó por hacer?`,
+        );
+      }
+    },
+    alError: (fallo) => {
+      fijarBotones(false);
+      redibujar();
+      reportarFallo(fallo);
+    },
+  });
+}
+
+function mensajeDeVictoria(bloques) {
+  const par = nivel.par;
+  if (nivel.esBonus) {
+    return `Llegaste — y ese laberinto no lo había visto nadie. ${bloques} bloques.`;
+  }
+  if (bloques < par) return `Llegaste en ${bloques} bloques. Bajo par (${par}).`;
+  if (bloques === par) return `Llegaste en ${bloques} bloques. Justo en el par.`;
+  return `Llegaste en ${bloques} bloques. El par es ${par}: ¿se puede decir más corto?`;
+}
+
+function reportarFallo(fallo) {
+  fijarBotones(false);
+  if (!esErrorDelJuego(fallo)) throw fallo;
+  consola.escribir(fallo.mensaje, 'error');
+  if (fallo.linea) editor.resaltar(fallo.linea, { error: true });
+  else editor.limpiarResaltado();
+}
+
+// --- Controles ------------------------------------------------------------
+
+$('correr').addEventListener('click', () => correr(VELOCIDAD_NORMAL, 'correr'));
+$('lento').addEventListener('click', () => correr(VELOCIDAD_LENTA, 'lento'));
+$('reiniciar').addEventListener('click', () => {
+  corredor.detener();
+  fijarBotones(false);
+  mundo.reiniciar();
+  recorrido = new Set();
+  marcarPosicion();
+  editor.limpiarResaltado();
+  redibujar();
+  consola.escribir('Robot de vuelta al inicio. Tu programa sigue ahí.');
+});
+
+document.addEventListener('keydown', (evento) => {
+  if ((evento.metaKey || evento.ctrlKey) && evento.key === 'Enter') {
+    evento.preventDefault();
+    correr(evento.shiftKey ? VELOCIDAD_LENTA : VELOCIDAD_NORMAL, evento.shiftKey ? 'lento' : 'correr');
+  }
+});
+
+window.addEventListener('resize', () => redibujar());
+
+// --- Arranque -------------------------------------------------------------
+
+cargarNivel(1, { conservarBorrador: false });
+actualizarMarcador();
+return {  };
+})();
+})();
+    </script>
+  </body>
+</html>

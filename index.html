@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Laberinto</title>
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <div class="marco">
+      <header class="barra">
+        <div class="marca">LABERINTO</div>
+        <nav class="niveles" id="niveles" aria-label="Niveles"></nav>
+        <div class="encabezado-nivel">
+          <h1 id="titulo-nivel">Pasillo recto</h1>
+          <p class="descubrimiento" id="descubrimiento"></p>
+        </div>
+      </header>
+
+      <main class="tablero">
+        <section class="panel panel-mapa">
+          <div class="etiqueta">
+            <span id="etiqueta-mapa">Mapa</span>
+            <span class="nota" id="nota-mapa"></span>
+          </div>
+          <div class="lienzo-caja">
+            <canvas id="mapa"></canvas>
+          </div>
+          <p class="pista" id="pista"></p>
+        </section>
+
+        <section class="panel panel-editor">
+          <div class="etiqueta">
+            <span>Tu programa</span>
+            <span class="nota">se corre completo, no paso a paso</span>
+          </div>
+          <div class="editor">
+            <div class="gutter" id="gutter" aria-hidden="true"></div>
+            <div class="area">
+              <div class="banda" id="banda" aria-hidden="true"></div>
+              <pre class="espejo" id="espejo" aria-hidden="true"></pre>
+              <textarea
+                id="codigo"
+                spellcheck="false"
+                autocomplete="off"
+                autocapitalize="off"
+                autocorrect="off"
+                aria-label="Tu programa"
+              ></textarea>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel panel-comandos">
+          <div class="etiqueta"><span>Comandos</span></div>
+          <div class="comandos" id="comandos"></div>
+        </aside>
+      </main>
+
+      <div class="controles">
+        <button class="boton" id="correr">Correr</button>
+        <button class="boton" id="lento">Cámara lenta</button>
+        <button class="boton boton-fantasma" id="reiniciar">Reiniciar</button>
+        <div class="separador"></div>
+        <div class="marcador" id="marcador"></div>
+      </div>
+
+      <div class="consola" id="consola">Escribe tu programa y dale a Correr.</div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

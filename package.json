@@ -1,0 +1,11 @@
+{
+  "name": "laberinto",
+  "version": "1.0.0",
+  "description": "Juego de laberinto para enseñar programación — dinámica de 50 minutos",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "build": "node build.mjs"
+  }
+}

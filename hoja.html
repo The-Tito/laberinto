@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Laberinto · Hoja de referencia</title>
+    <style>
+      /* Hoja imprimible (spec §9). Una página, blanco y negro, sin teoría.
+         Es una referencia para tener al lado del teclado, no un manual: todo lo
+         que necesiten entender sale de chocar contra el problema. */
+
+      @page {
+        size: letter;
+        margin: 11mm;
+      }
+
+      :root {
+        --tinta: #111;
+        --gris: #6f6f6a;
+        --hairline: #c9c9c4;
+        --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+        --texto: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 11mm;
+        background: #fff;
+        color: var(--tinta);
+        font-family: var(--texto);
+        font-size: 9.2pt;
+        line-height: 1.35;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        border-bottom: 2.5px solid var(--tinta);
+        padding-bottom: 5px;
+        margin-bottom: 8px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 17pt;
+        letter-spacing: -0.04em;
+      }
+
+      header .sub {
+        font-family: var(--mono);
+        font-size: 7.6pt;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--gris);
+      }
+
+      header .nombre {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 7.6pt;
+        letter-spacing: 0.1em;
+        color: var(--gris);
+      }
+
+      .columnas {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+      }
+
+      h2 {
+        font-family: var(--mono);
+        font-size: 7.4pt;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        margin: 0 0 4px;
+        padding-bottom: 2px;
+        border-bottom: 1px solid var(--tinta);
+      }
+
+      .bloque {
+        margin-bottom: 9px;
+      }
+
+      /* Comando + su línea de explicación. Una línea cada uno, sin excepción. */
+      .fila {
+        display: grid;
+        grid-template-columns: 1fr;
+        margin-bottom: 3.5px;
+      }
+
+      code {
+        font-family: var(--mono);
+        font-size: 9pt;
+        font-weight: 600;
+      }
+
+      .fila em {
+        font-style: normal;
+        color: var(--gris);
+        font-size: 8.4pt;
+      }
+
+      /* Ejemplos ya escritos: se copian tal cual. */
+      pre {
+        font-family: var(--mono);
+        font-size: 8.6pt;
+        line-height: 1.4;
+        margin: 3px 0 0;
+        padding: 5px 7px;
+        border-left: 2.5px solid var(--tinta);
+        background: #f2f2f0;
+        white-space: pre;
+      }
+
+      .estructura {
+        margin-bottom: 7px;
+      }
+
+      .estructura b {
+        font-family: var(--mono);
+        font-size: 9pt;
+      }
+
+      .estructura span {
+        color: var(--gris);
+        font-size: 8.4pt;
+      }
+
+      .reglas {
+        border: 1.5px solid var(--tinta);
+        padding: 6px 8px;
+        margin-top: 2px;
+      }
+
+      .reglas ul {
+        margin: 0;
+        padding-left: 13px;
+      }
+
+      .reglas li {
+        margin-bottom: 2px;
+        font-size: 8.4pt;
+      }
+
+      .conteo {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        margin-top: 5px;
+        padding-top: 5px;
+        border-top: 1px solid var(--hairline);
+      }
+
+      .conteo pre {
+        border-left: 0;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        font-size: 8.4pt;
+      }
+
+      .conteo p {
+        margin: 0;
+        font-size: 8.4pt;
+        color: var(--gris);
+      }
+
+      /* Espacio para rayar: es parte del entregable, no relleno. */
+      .rayar {
+        margin-top: 9px;
+        border: 1.5px solid var(--tinta);
+        height: 88mm;
+        position: relative;
+        background-image: repeating-linear-gradient(
+          transparent,
+          transparent 7.2mm,
+          var(--hairline) 7.2mm,
+          var(--hairline) 7.5mm
+        );
+      }
+
+      .rayar span {
+        position: absolute;
+        top: 3px;
+        left: 6px;
+        font-family: var(--mono);
+        font-size: 7.4pt;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--gris);
+        background: #fff;
+        padding: 0 4px;
+      }
+
+      .pie {
+        margin-top: 5px;
+        font-family: var(--mono);
+        font-size: 7.2pt;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--gris);
+        display: flex;
+        justify-content: space-between;
+      }
+
+      @media screen {
+        body {
+          max-width: 216mm;
+          min-height: 279mm;
+          margin: 16px auto;
+          box-shadow: 0 2px 22px rgba(0, 0, 0, 0.16);
+        }
+      }
+
+      /* En papel el margen lo pone @page: si además dejamos el padding del body,
+         el contenido se angosta y la hoja se desborda a una segunda página. */
+      @media print {
+        body {
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>LABERINTO</h1>
+      <span class="sub">Hoja de referencia</span>
+      <span class="nombre">Nombre ______________________</span>
+    </header>
+
+    <div class="columnas">
+      <div>
+        <div class="bloque">
+          <h2>Acciones · lo que el robot hace</h2>
+          <div class="fila">
+            <code>avanzar();</code>
+            <em>Da un paso hacia donde estás mirando.</em>
+          </div>
+          <div class="fila">
+            <code>girarDerecha();</code>
+            <em>Giras a la derecha. No te mueves de casilla.</em>
+          </div>
+          <div class="fila">
+            <code>girarIzquierda();</code>
+            <em>Giras a la izquierda. No te mueves de casilla.</em>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <h2>Preguntas · contestan sí o no</h2>
+          <div class="fila">
+            <code>caminoLibre()</code>
+            <em>¿Está libre la casilla de enfrente?</em>
+          </div>
+          <div class="fila">
+            <code>caminoLibreDerecha()</code>
+            <em>¿Está libre la casilla de tu derecha?</em>
+          </div>
+          <em style="color: #6f6f6a; font-size: 8.4pt"
+            >Las preguntas no van solas: viven dentro de un <code>si</code> o de un
+            <code>mientras</code>.</em
+          >
+        </div>
+
+        <div class="bloque">
+          <h2>Las reglas</h2>
+          <div class="reglas">
+            <ul>
+              <li>El robot siempre empieza mirando al <b>este</b> (a la derecha).</li>
+              <li>
+                Escribes el programa completo y lo sueltas. No se maneja con las flechas
+                del teclado.
+              </li>
+              <li>
+                Gana el programa más <b>corto</b>, no el más rápido. Cada nivel te dice en
+                cuántos bloques se puede.
+              </li>
+            </ul>
+            <div class="conteo">
+              <pre>repetir (6) {   &lt;- 1
+  avanzar();    &lt;- 2
+}               &lt;- no cuenta</pre>
+              <p>
+                Cuenta 1 por cada instrucción y 1 por cada estructura. Las llaves de
+                cierre no cuentan. Este programa son <b>2 bloques</b>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="bloque">
+          <h2>Estructuras · cómo se agrupa</h2>
+
+          <div class="estructura">
+            <b>repetir</b> <span>— hace lo de adentro el número de veces que le pongas.</span>
+            <pre>repetir (4) {
+  avanzar();
+}</pre>
+          </div>
+
+          <div class="estructura">
+            <b>mientras</b> <span>— repite mientras la respuesta siga siendo sí.</span>
+            <pre>mientras (caminoLibre()) {
+  avanzar();
+}</pre>
+          </div>
+
+          <div class="estructura">
+            <b>si / sino</b> <span>— una cosa u otra, según la respuesta.</span>
+            <pre>si (caminoLibre()) {
+  avanzar();
+} sino {
+  girarDerecha();
+}</pre>
+          </div>
+
+          <div class="estructura">
+            <b>repetirHastaLaMeta</b>
+            <span>— repite hasta pisar la meta. Se desbloquea en el bonus.</span>
+            <pre>repetirHastaLaMeta {
+  avanzar();
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rayar"><span>Para rayar</span></div>
+
+    <div class="pie">
+      <span>8 comandos · 5 niveles</span>
+      <span>Correr = rápido · Cámara lenta = ver dónde se rompe</span>
+    </div>
+  </body>
+</html>
