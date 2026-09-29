@@ -268,6 +268,27 @@ function contarFallo() {
   if (fallos === 3) metricas.registrarUnaVez(`n${nivel.numero}-3-fallos`);
 }
 
+// --- Aviso en pantallas angostas (CAMBIOS-cohorte-0 §7) -------------------
+//
+// Sólo sugiere: el juego no se bloquea en el celular. El CSS decide cuándo se ve.
+
+$('cerrar-aviso').addEventListener('click', () => {
+  $('aviso-movil').hidden = true;
+});
+$('copiar-link').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $('copiar-link').textContent = '¡Copiado!';
+  } catch {
+    // Navegadores dentro de apps a veces no dejan copiar: se muestra el link
+    // para copiarlo a mano.
+    const url = document.createElement('span');
+    url.className = 'aviso-url';
+    url.textContent = location.href;
+    $('copiar-link').replaceWith(url);
+  }
+});
+
 // --- Controles ------------------------------------------------------------
 
 // Link permanente al formulario (CAMBIOS-cohorte-0 §6): también quien abandona
