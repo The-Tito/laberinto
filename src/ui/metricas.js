@@ -101,5 +101,58 @@ export function crearMetricas({
     registrar(nombre);
   }
 
-  return { registrarVisita, registrar, registrarUnaVez };
+  /**
+   * Recurrencia (cambio 2): sólo avisa el día en que el contador sube, para que
+   * recargar la página el mismo día no repita el evento.
+   * @param {Parameters<typeof contarDiaDeVisita>[0]} [opciones]
+   */
+  function registrarDiaDeVisita(opciones) {
+    const visita = contarDiaDeVisita(opciones);
+    if (!visita?.esNuevoDia) return;
+    if (visita.dias === 2) registrarUnaVez('visita-dia-2');
+    else if (visita.dias >= 3) registrarUnaVez('visita-dia-3-mas');
+  }
+
+  return { registrarVisita, registrar, registrarUnaVez, registrarDiaDeVisita };
+}
+
+// --- Contador de visitas (CAMBIOS-cohorte-0 §4) ---------------------------
+//
+// Un solo registro local y anónimo: cuántos días distintos ha abierto el juego y
+// cuál fue el último. Nada más. No es guardado en la nube (SPEC §11).
+
+export const CLAVE_VISITAS = 'laberinto-visitas';
+
+/** Fecha local AAAA-MM-DD: "un día" es el día de quien juega, no el de UTC. */
+export function fechaLocal(fecha = new Date()) {
+  const dos = (n) => String(n).padStart(2, '0');
+  return `${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}`;
+}
+
+/**
+ * Suma un día si hoy es distinto al último guardado.
+ * @param {{ almacenamiento?: Storage, hoy?: string }} [opciones]
+ * @returns {{ dias: number, esNuevoDia: boolean } | null} null si no hay almacenamiento
+ */
+export function contarDiaDeVisita({ almacenamiento, hoy = fechaLocal() } = {}) {
+  try {
+    // Leer localStorage puede lanzar por sí solo (Safari privado, cookies bloqueadas).
+    const guardado = almacenamiento ?? globalThis.localStorage;
+    if (!guardado) return null;
+
+    let anterior = null;
+    try {
+      anterior = JSON.parse(guardado.getItem(CLAVE_VISITAS));
+    } catch {
+      // Registro dañado: se empieza de nuevo.
+    }
+    const dias = Number.isInteger(anterior?.dias) && anterior.dias > 0 ? anterior.dias : 0;
+    if (dias > 0 && anterior.ultima === hoy) return { dias, esNuevoDia: false };
+
+    const nuevo = { dias: dias + 1, ultima: hoy };
+    guardado.setItem(CLAVE_VISITAS, JSON.stringify(nuevo));
+    return { dias: nuevo.dias, esNuevoDia: true };
+  } catch {
+    return null;
+  }
 }
