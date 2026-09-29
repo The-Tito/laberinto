@@ -263,3 +263,4 @@ window.addEventListener('resize', () => redibujar());
 cargarNivel(1, { conservarBorrador: false });
 actualizarMarcador();
 metricas.registrarVisita();
+metricas.registrarDiaDeVisita();
