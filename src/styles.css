@@ -487,6 +487,13 @@ button {
   border-width: 1px;
 }
 
+/* La pista pide atención una sola vez, al tercer fallo: está viva, por eso lima. */
+.boton.resaltado {
+  background: var(--lima);
+  border-width: 2px;
+  box-shadow: 3px 3px 0 var(--tinta);
+}
+
 .separador {
   flex: 1;
 }
@@ -569,6 +576,18 @@ button {
 
 .puerta {
   margin: 0;
+}
+
+/* Empujón y pistas: separados del mensaje con una regla fina, para que no se
+   lean como parte del error. */
+.nota-consola {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px dashed var(--hairline);
+}
+
+.consola.error .nota-consola {
+  border-top-color: rgba(233, 233, 231, 0.35);
 }
 
 .enlace {

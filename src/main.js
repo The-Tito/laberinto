@@ -49,6 +49,8 @@ let corridasBonus = 0; // para bonus-5-corridas
 // Un solo contador por nivel: errores y corridas sin meta suman igual. Al tercero
 // es cuando alguien empieza a atorarse de verdad (CAMBIOS-cohorte-0 §3).
 const fallosPorNivel = new Map();
+const pistasVistas = new Map(); // nivel → cuántas pistas ha abierto
+let nodoPista = null; // la pista en consola, para cambiarla sin borrar el error
 
 // --- Dibujo ---------------------------------------------------------------
 
@@ -94,6 +96,7 @@ function cargarNivel(numero, { conservarBorrador = true } = {}) {
 
   paleta.mostrar(nivel.permitidos, nivel.esBonus ? ['repetirHastaLaMeta'] : []);
   pintarNavegacion();
+  $('pista-btn').classList.remove('resaltado');
 
   editor.limpiarResaltado();
   editor.valor = borradores.get(nivel.numero) ?? '';
@@ -145,6 +148,8 @@ function prepararMundo() {
 function fijarBotones(corriendo, cual) {
   $('correr').disabled = corriendo;
   $('lento').disabled = corriendo;
+  // Una pista pedida a media corrida la borraría el mensaje final.
+  $('pista-btn').disabled = corriendo;
   $('correr').classList.toggle('corriendo', corriendo && cual === 'correr');
   $('lento').classList.toggle('corriendo', corriendo && cual === 'lento');
 }
@@ -262,10 +267,46 @@ function reportarFallo(fallo) {
   contarFallo();
 }
 
+// Se llama DESPUÉS de escribir el mensaje del fallo: el empujón va como anexo
+// debajo de ese mensaje, y el siguiente escribir() lo borra.
 function contarFallo() {
   const fallos = (fallosPorNivel.get(nivel.numero) ?? 0) + 1;
   fallosPorNivel.set(nivel.numero, fallos);
-  if (fallos === 3) metricas.registrarUnaVez(`n${nivel.numero}-3-fallos`);
+  // El contador no se reinicia: el empujón sale una vez por nivel y por sesión.
+  if (fallos !== 3) return;
+
+  metricas.registrarUnaVez(`n${nivel.numero}-3-fallos`);
+  // La frase que el SPEC §10 le da al guía: enseña a depurar, no sólo a pasar.
+  const empujon = document.createElement('p');
+  empujon.className = 'nota-consola';
+  empujon.textContent =
+    '¿Y si lo corres en Cámara lenta? Mira en qué línea el personaje hace algo que no esperabas.';
+  consola.agregar(empujon);
+  $('pista-btn').classList.add('resaltado');
+}
+
+// --- Pistas escalonadas (CAMBIOS-cohorte-0 §7b) -----------------------------
+//
+// No se ofrecen antes de que hagan falta (SPEC §10): el botón siempre está, pero
+// sólo se resalta al tercer fallo. Cada toque abre una más, de menos a más.
+
+function mostrarPista() {
+  $('pista-btn').classList.remove('resaltado');
+
+  const vistas = Math.min((pistasVistas.get(nivel.numero) ?? 0) + 1, nivel.pistas.length);
+  const yaEranTodas = pistasVistas.get(nivel.numero) === nivel.pistas.length;
+  pistasVistas.set(nivel.numero, vistas);
+  metricas.registrarUnaVez(`n${nivel.numero}-pista-${vistas}`);
+
+  const texto = `Pista ${vistas} de ${nivel.pistas.length} · ${nivel.pistas[vistas - 1]}`;
+  // Debajo del mensaje actual, sin borrar el error que están leyendo.
+  if (!nodoPista?.isConnected) {
+    nodoPista = document.createElement('p');
+    nodoPista.className = 'nota-consola';
+    consola.agregar(nodoPista);
+  }
+  nodoPista.textContent = yaEranTodas ? `Esas son todas las pistas de este nivel. ${texto}` : texto;
+  editor.enfocar();
 }
 
 // --- Aviso en pantallas angostas (CAMBIOS-cohorte-0 §7) -------------------
@@ -290,6 +331,8 @@ $('copiar-link').addEventListener('click', async () => {
 });
 
 // --- Controles ------------------------------------------------------------
+
+$('pista-btn').addEventListener('click', mostrarPista);
 
 // Link permanente al formulario (CAMBIOS-cohorte-0 §6): también quien abandona
 // debe poder opinar, y es justo quien más información da.

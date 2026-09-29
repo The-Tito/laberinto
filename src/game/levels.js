@@ -22,6 +22,13 @@ export const NIVELES = [
     titulo: 'Pasillo recto',
     descubrimiento: 'El bucle repetir',
     pista: 'Seis pasos hasta la meta. Se puede en dos bloques.',
+    // Pistas escalonadas (CAMBIOS-cohorte-0 §7b, textos de docs/PISTAS.md):
+    // pregunta que hace mirar → concepto → estructura con huecos.
+    pistas: [
+      '¿Qué acción repites una y otra vez para llegar a la meta? ¿Cuántas veces?',
+      'Cuando algo se repite igual, hay un comando para decirlo una sola vez: repetir. Búscalo en el panel.',
+      'repetir (___) { ___ }',
+    ],
     mapa: mapa(`
       #########
       #S.....M#
@@ -41,6 +48,11 @@ export const NIVELES = [
     titulo: 'Forma de L',
     descubrimiento: 'Los giros, y repetir más de una vez',
     pista: 'El camino da vuelta. ¿Cuántos pasos antes de girar?',
+    pistas: [
+      'Imagina que tú eres el personaje y estás adentro del laberinto. Cuando llegues a la esquina, ¿hacia qué lado giras tú? No pienses en la pantalla.',
+      'Girar no te mueve de casilla: solo cambia hacia dónde miras. Después de girar, avanzar() te lleva hacia tu nuevo "enfrente".',
+      'repetir (___) { avanzar(); } → girar______(); → repetir (___) { avanzar(); }',
+    ],
     mapa: mapa(`
       #######
       #S....#
@@ -68,6 +80,11 @@ repetir (4) {
     titulo: 'Zigzag',
     descubrimiento: 'mientras — el programa averigua solo cuántos pasos dar',
     pista: 'Los tramos miden distinto. Contar pasos ya no sirve.',
+    pistas: [
+      'Si contar ya no sirve, ¿qué podría preguntarse el personaje en cada paso para saber si puede seguir?',
+      'caminoLibre() contesta sí o no. Con mientras, el personaje avanza mientras haya camino, sin que tú cuentes nada.',
+      'El camino repite un patrón: avanzar hasta la pared → girar a la derecha → avanzar hasta la pared → girar a la izquierda. repetir (___) { mientras (___) { avanzar(); } girar______(); ... }',
+    ],
     mapa: mapa(`
       ##########
       #S...#####
@@ -102,6 +119,11 @@ repetir (4) {
     titulo: 'Laberinto',
     descubrimiento: 'si / sino, y combinar estructuras',
     pista: 'Hay callejones sin salida. Una regla sencilla los resuelve todos.',
+    pistas: [
+      'Si estuvieras en un laberinto de verdad con los ojos cerrados, ¿qué regla seguirías con una mano en la pared para no perderte?',
+      'Regla de la mano derecha: si a tu derecha hay camino, gira a la derecha y avanza. Si no, y enfrente hay camino, avanza. Si tampoco, gira a la izquierda. Para elegir entre caminos se usa si / sino.',
+      'repetir (40) { si (caminoLibreDerecha()) { ___ } sino { si (___) { ___ } sino { ___ } } }',
+    ],
     mapa: mapa(`
       #########
       #S#.....#
@@ -135,6 +157,11 @@ repetir (4) {
     titulo: 'BONUS · Laberinto aleatorio',
     descubrimiento: 'Un programa que resuelve problemas que su autor nunca vio',
     pista: 'Otro laberinto cada vez que corres. Contar pasos ya no es opción.',
+    pistas: [
+      '¿Qué parte de tu programa del nivel 4 dependía de ese mapa exacto?',
+      'El 40 del nivel 4 era una apuesta. repetirHastaLaMeta repite lo necesario, ni más ni menos.',
+      'Tu regla del nivel 4 ya funciona aquí. Solo cambia el bloque de afuera: repetirHastaLaMeta { ___ }',
+    ],
     esBonus: true,
     aleatorio: true,
     generarMapa: () => generarLaberinto({ celdasAncho: 5, celdasAlto: 5 }),
