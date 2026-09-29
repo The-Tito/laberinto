@@ -33,6 +33,12 @@ Si algo falla, no se hace commit: se arregla o se reporta.
 - Mensajes en español, en imperativo, con el cambio y su porqué (`Agrega módulo de métricas con GoatCounter`).
 - Push de `develop` y de la feature tras cada merge verificado.
 
+## Handoff: regla obligatoria
+
+Cada vez que una feature se fusiona en `develop`, o una release en `main`, se agrega una entrada breve arriba del todo en `docs/HANDOFF.md`: qué se hizo, cómo se verificó, qué se decidió y qué quedó pendiente. Una fase no está terminada hasta que tiene su entrada. Lo que va a medias no entra.
+
+`docs/` está fuera de git, así que el handoff es local: no va en el commit.
+
 ## Modelos
 
 Subagentes en `.claude/agents/` (locales, fuera de git):
