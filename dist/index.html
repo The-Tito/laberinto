@@ -2306,6 +2306,105 @@ return { crearMarcador, crearConsola };
 })();
 
 // ======================================================================
+// src/ui/metricas.js
+// ======================================================================
+const __mod_src_ui_metricas_js = (() => {
+// Medición anónima para la cohorte 0 (CAMBIOS-cohorte-0 §3).
+//
+// GoatCounter, sin cookies ni localStorage. Es provisional: la herramienta
+// definitiva se elige en la Fase 5, y por eso todo lo que sabe de GoatCounter
+// vive en este archivo y en ningún otro.
+//
+// Regla dura: la medición nunca rompe el juego. Con doble clic (file://), en un
+// servidor local, con ?nometricas o sin red, esto se apaga en silencio.
+//
+// El envío y la ubicación entran por parámetro para que los tests corran en Node,
+// igual que generarLaberinto recibe `aleatorio`.
+//
+// Formato del endpoint (goatcounter.com/help/pixel):
+//   GET https://CODIGO.goatcounter.com/count?p=<ruta o evento>&e=true
+//   p   ruta o nombre del evento; un evento no puede empezar con "/"
+//   e   true si es evento
+//   r   referente · q  query de la página (campañas) · s  "ancho,alto,escala"
+//   rnd ignorado; sólo evita caché
+
+const CODIGO_GOATCOUNTER = 'antonio-selvas';
+
+/** Envío real: el pixel de GoatCounter. Los fallos llegan como evento, no lanzan. */
+function enviarConImagen(url) {
+  new Image().src = url;
+}
+
+/**
+ * @param {{
+ *   ubicacion?: { protocol: string, pathname: string, search: string },
+ *   enviar?: (url: string) => unknown,
+ *   codigo?: string,
+ *   referente?: string,
+ *   pantalla?: string,
+ * }} opciones
+ */
+function crearMetricas({
+  ubicacion = globalThis.location,
+  enviar = enviarConImagen,
+  codigo = CODIGO_GOATCOUNTER,
+  referente = '',
+  pantalla = '',
+} = {}) {
+  const enviados = new Set();
+
+  function activa() {
+    try {
+      if (ubicacion?.protocol !== 'https:') return false;
+      return !new URLSearchParams(ubicacion.search).has('nometricas');
+    } catch {
+      return false;
+    }
+  }
+
+  function mandar(parametros) {
+    if (!activa()) return;
+    try {
+      const url = new URL(`https://${codigo}.goatcounter.com/count`);
+      for (const [clave, valor] of Object.entries(parametros)) {
+        if (valor) url.searchParams.set(clave, valor);
+      }
+      url.searchParams.set('rnd', Math.random().toString(36).slice(2));
+      const respuesta = enviar(url.toString());
+      respuesta?.catch?.(() => {});
+    } catch {
+      // Sin red, bloqueada o lo que sea: el juego sigue.
+    }
+  }
+
+  /** Pageview al abrir. `q` lleva el ?ref=canal para separar la campaña. */
+  function registrarVisita() {
+    mandar({
+      p: ubicacion?.pathname || '/',
+      q: ubicacion?.search,
+      r: referente,
+      s: pantalla,
+    });
+  }
+
+  /** @param {string} nombre p. ej. "n3-error-LIMITE_PASOS" */
+  function registrar(nombre) {
+    mandar({ p: nombre.replace(/^\/+/, ''), e: 'true' });
+  }
+
+  /** Igual que registrar, pero un mismo evento sale una sola vez por sesión. */
+  function registrarUnaVez(nombre) {
+    if (enviados.has(nombre)) return;
+    enviados.add(nombre);
+    registrar(nombre);
+  }
+
+  return { registrarVisita, registrar, registrarUnaVez };
+}
+return { CODIGO_GOATCOUNTER, crearMetricas };
+})();
+
+// ======================================================================
 // src/ui/runner.js
 // ======================================================================
 const __mod_src_ui_runner_js = (() => {
@@ -2425,6 +2524,7 @@ const { crearEditor } = __mod_src_ui_editor_js;
 const { crearRenderizador } = __mod_src_ui_renderer_js;
 const { crearPaleta } = __mod_src_ui_palette_js;
 const { crearMarcador, crearConsola } = __mod_src_ui_hud_js;
+const { crearMetricas } = __mod_src_ui_metricas_js;
 const { crearCorredor, VELOCIDAD_NORMAL, VELOCIDAD_LENTA, TOPE_ANIMACION_MS } = __mod_src_ui_runner_js;
 
 const $ = (id) => document.getElementById(id);
@@ -2440,11 +2540,16 @@ const paleta = crearPaleta($('comandos'), { alInsertar: (plantilla) => editor.in
 const marcador = crearMarcador($('marcador'));
 const consola = crearConsola($('consola'));
 const corredor = crearCorredor();
+const metricas = crearMetricas({
+  referente: document.referrer,
+  pantalla: `${screen.width},${screen.height},${devicePixelRatio}`,
+});
 
 const borradores = new Map(); // el programa de cada nivel se conserva al cambiar
 let nivel = NIVELES[0];
 let mundo = null;
 let recorrido = new Set();
+let corridasBonus = 0; // para bonus-5-corridas
 
 // --- Dibujo ---------------------------------------------------------------
 
@@ -2546,6 +2651,10 @@ function fijarBotones(corriendo, cual) {
 }
 
 function correr(intervalo, cual) {
+  metricas.registrarUnaVez(`n${nivel.numero}-primera-corrida`);
+  if (cual === 'lento') metricas.registrarUnaVez('camara-lenta');
+  if (nivel.esBonus && ++corridasBonus === 5) metricas.registrarUnaVez('bonus-5-corridas');
+
   corredor.detener();
   editor.limpiarResaltado();
   prepararMundo();
@@ -2581,6 +2690,8 @@ function correr(intervalo, cual) {
       if (resultado.llego) {
         editor.limpiarResaltado();
         consola.escribir(mensajeDeVictoria(bloques), 'exito');
+        metricas.registrarUnaVez(`n${nivel.numero}-completado`);
+        if (bloques <= nivel.par) metricas.registrarUnaVez(`n${nivel.numero}-en-par`);
       } else {
         // Que vean DÓNDE se detuvo, no sólo que se detuvo (spec §6).
         editor.resaltar(resultado.ultimaLinea, { error: true });
@@ -2610,6 +2721,7 @@ function mensajeDeVictoria(bloques) {
 function reportarFallo(fallo) {
   fijarBotones(false);
   if (!esErrorDelJuego(fallo)) throw fallo;
+  metricas.registrarUnaVez(`n${nivel.numero}-error-${fallo.codigo}`);
   consola.escribir(fallo.mensaje, 'error');
   if (fallo.linea) editor.resaltar(fallo.linea, { error: true });
   else editor.limpiarResaltado();
@@ -2643,6 +2755,7 @@ window.addEventListener('resize', () => redibujar());
 
 cargarNivel(1, { conservarBorrador: false });
 actualizarMarcador();
+metricas.registrarVisita();
 return {  };
 })();
 })();
