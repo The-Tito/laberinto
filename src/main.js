@@ -45,6 +45,9 @@ let nivel = NIVELES[0];
 let mundo = null;
 let recorrido = new Set();
 let corridasBonus = 0; // para bonus-5-corridas
+// Un solo contador por nivel: errores y corridas sin meta suman igual. Al tercero
+// es cuando alguien empieza a atorarse de verdad (CAMBIOS-cohorte-0 §3).
+const fallosPorNivel = new Map();
 
 // --- Dibujo ---------------------------------------------------------------
 
@@ -193,6 +196,8 @@ function correr(intervalo, cual) {
         consola.escribir(
           `Tu programa terminó en la línea ${resultado.ultimaLinea} y el robot no llegó a la meta. ¿Qué le faltó por hacer?`,
         );
+        metricas.registrarUnaVez(`n${nivel.numero}-sin-meta`);
+        contarFallo();
       }
     },
     alError: (fallo) => {
@@ -220,6 +225,13 @@ function reportarFallo(fallo) {
   consola.escribir(fallo.mensaje, 'error');
   if (fallo.linea) editor.resaltar(fallo.linea, { error: true });
   else editor.limpiarResaltado();
+  contarFallo();
+}
+
+function contarFallo() {
+  const fallos = (fallosPorNivel.get(nivel.numero) ?? 0) + 1;
+  fallosPorNivel.set(nivel.numero, fallos);
+  if (fallos === 3) metricas.registrarUnaVez(`n${nivel.numero}-3-fallos`);
 }
 
 // --- Controles ------------------------------------------------------------

@@ -102,3 +102,28 @@ test('§8.3 · registrar no lanza si la petición falla', async () => {
   await new Promise((listo) => setTimeout(listo, 0));
   assert.equal(rechazos, 1);
 });
+
+test('?depurar-metricas muestra los eventos en consola y no los envía, aun con doble clic', () => {
+  const mostrados = [];
+  const { metricas, urls } = conEspia({
+    ubicacion: { protocol: 'file:', pathname: '/index.html', search: '?depurar-metricas' },
+    mostrar: (...datos) => mostrados.push(datos),
+  });
+  metricas.registrarVisita();
+  metricas.registrarUnaVez('n1-sin-meta');
+  assert.equal(urls.length, 0);
+  assert.deepEqual(
+    mostrados.map(([, descripcion]) => descripcion),
+    ['visita', 'evento n1-sin-meta'],
+  );
+});
+
+test('?nometricas gana sobre ?depurar-metricas', () => {
+  const mostrados = [];
+  const { metricas, urls } = conEspia({
+    ubicacion: { ...PUBLICADA, search: '?nometricas&depurar-metricas' },
+    mostrar: (...datos) => mostrados.push(datos),
+  });
+  metricas.registrar('n1-completado');
+  assert.equal(urls.length + mostrados.length, 0);
+});
