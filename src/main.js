@@ -270,6 +270,11 @@ function contarFallo() {
 
 // --- Controles ------------------------------------------------------------
 
+// Link permanente al formulario (CAMBIOS-cohorte-0 §6): también quien abandona
+// debe poder opinar, y es justo quien más información da.
+$('opinion').href = URL_FORMULARIO;
+$('opinion').addEventListener('click', () => metricas.registrarUnaVez('feedback-clic'));
+
 $('correr').addEventListener('click', () => correr(VELOCIDAD_NORMAL, 'correr'));
 $('lento').addEventListener('click', () => correr(VELOCIDAD_LENTA, 'lento'));
 $('reiniciar').addEventListener('click', () => {

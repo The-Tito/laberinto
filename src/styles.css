@@ -55,7 +55,7 @@ button {
   height: 100vh;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   gap: 12px;
 }
 
@@ -594,6 +594,23 @@ button {
 
 .consola.exito::before {
   content: '★';
+  color: var(--tinta);
+}
+
+/* --- Pie ---------------------------------------------------------------- */
+
+/* Discreto a propósito: dice qué se mide, sin competir con el juego. */
+.pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--gris);
+}
+
+.pie .enlace {
   color: var(--tinta);
 }
 
