@@ -14,6 +14,7 @@ import { crearEditor } from './ui/editor.js';
 import { crearRenderizador } from './ui/renderer.js';
 import { crearPaleta } from './ui/palette.js';
 import { crearMarcador, crearConsola } from './ui/hud.js';
+import { crearMetricas } from './ui/metricas.js';
 import {
   crearCorredor,
   VELOCIDAD_NORMAL,
@@ -34,11 +35,16 @@ const paleta = crearPaleta($('comandos'), { alInsertar: (plantilla) => editor.in
 const marcador = crearMarcador($('marcador'));
 const consola = crearConsola($('consola'));
 const corredor = crearCorredor();
+const metricas = crearMetricas({
+  referente: document.referrer,
+  pantalla: `${screen.width},${screen.height},${devicePixelRatio}`,
+});
 
 const borradores = new Map(); // el programa de cada nivel se conserva al cambiar
 let nivel = NIVELES[0];
 let mundo = null;
 let recorrido = new Set();
+let corridasBonus = 0; // para bonus-5-corridas
 
 // --- Dibujo ---------------------------------------------------------------
 
@@ -140,6 +146,10 @@ function fijarBotones(corriendo, cual) {
 }
 
 function correr(intervalo, cual) {
+  metricas.registrarUnaVez(`n${nivel.numero}-primera-corrida`);
+  if (cual === 'lento') metricas.registrarUnaVez('camara-lenta');
+  if (nivel.esBonus && ++corridasBonus === 5) metricas.registrarUnaVez('bonus-5-corridas');
+
   corredor.detener();
   editor.limpiarResaltado();
   prepararMundo();
@@ -175,6 +185,8 @@ function correr(intervalo, cual) {
       if (resultado.llego) {
         editor.limpiarResaltado();
         consola.escribir(mensajeDeVictoria(bloques), 'exito');
+        metricas.registrarUnaVez(`n${nivel.numero}-completado`);
+        if (bloques <= nivel.par) metricas.registrarUnaVez(`n${nivel.numero}-en-par`);
       } else {
         // Que vean DÓNDE se detuvo, no sólo que se detuvo (spec §6).
         editor.resaltar(resultado.ultimaLinea, { error: true });
@@ -204,6 +216,7 @@ function mensajeDeVictoria(bloques) {
 function reportarFallo(fallo) {
   fijarBotones(false);
   if (!esErrorDelJuego(fallo)) throw fallo;
+  metricas.registrarUnaVez(`n${nivel.numero}-error-${fallo.codigo}`);
   consola.escribir(fallo.mensaje, 'error');
   if (fallo.linea) editor.resaltar(fallo.linea, { error: true });
   else editor.limpiarResaltado();
@@ -237,3 +250,4 @@ window.addEventListener('resize', () => redibujar());
 
 cargarNivel(1, { conservarBorrador: false });
 actualizarMarcador();
+metricas.registrarVisita();
