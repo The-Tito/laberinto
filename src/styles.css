@@ -614,6 +614,30 @@ button {
   color: var(--tinta);
 }
 
+/* --- Aviso para celular ------------------------------------------------- */
+
+.aviso-movil {
+  display: none;
+}
+
+.aviso-texto {
+  flex: 1 1 200px;
+}
+
+.aviso-cerrar {
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.aviso-url {
+  user-select: all;
+  word-break: break-all;
+  font-weight: 700;
+}
+
 /* --- Pantallas angostas -------------------------------------------------- */
 
 @media (max-width: 1080px) {
@@ -641,5 +665,28 @@ button {
 
   .grupo {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 699px) {
+  .aviso-movil:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 14px 0;
+    padding: 10px 12px;
+    border: var(--borde);
+    background: var(--papel);
+    box-shadow: var(--sombra);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  /* iOS hace zoom al escribir en campos de menos de 16px. El espejo del
+     resaltado hereda la misma fuente, así que sigue alineado. */
+  .editor {
+    font-size: 16px;
   }
 }
