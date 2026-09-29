@@ -15,6 +15,7 @@ import { crearRenderizador } from './ui/renderer.js';
 import { crearPaleta } from './ui/palette.js';
 import { crearMarcador, crearConsola } from './ui/hud.js';
 import { crearMetricas } from './ui/metricas.js';
+import { crearEnlace, URL_FORMULARIO, URL_CANAL } from './ui/enlaces.js';
 import {
   crearCorredor,
   VELOCIDAD_NORMAL,
@@ -188,6 +189,7 @@ function correr(intervalo, cual) {
       if (resultado.llego) {
         editor.limpiarResaltado();
         consola.escribir(mensajeDeVictoria(bloques), 'exito');
+        if (nivel.numero === 4 || nivel.esBonus) ofrecerMasNiveles();
         metricas.registrarUnaVez(`n${nivel.numero}-completado`);
         if (bloques <= nivel.par) metricas.registrarUnaVez(`n${nivel.numero}-en-par`);
       } else {
@@ -216,6 +218,38 @@ function mensajeDeVictoria(bloques) {
   if (bloques < par) return `Llegaste en ${bloques} bloques. Bajo par (${par}).`;
   if (bloques === par) return `Llegaste en ${bloques} bloques. Justo en el par.`;
   return `Llegaste en ${bloques} bloques. El par es ${par}: ¿se puede decir más corto?`;
+}
+
+// --- Puerta "Quiero más niveles" (CAMBIOS-cohorte-0 §5) ---------------------
+//
+// Mide si quieren más sin prometer nada que no exista: al primer clic dice la
+// verdad y los manda a opinar.
+
+function enlaceFormulario(texto) {
+  return crearEnlace(texto, URL_FORMULARIO, () => metricas.registrarUnaVez('feedback-clic'));
+}
+
+function enlaceCanal(texto) {
+  return crearEnlace(texto, URL_CANAL, () => metricas.registrarUnaVez('canal-clic'));
+}
+
+function ofrecerMasNiveles() {
+  const boton = document.createElement('button');
+  boton.type = 'button';
+  boton.className = 'boton';
+  boton.textContent = 'Quiero más niveles →';
+  boton.addEventListener('click', () => {
+    metricas.registrarUnaVez('mas-niveles-clic');
+    const respuesta = document.createElement('p');
+    respuesta.className = 'puerta';
+    respuesta.append(
+      'Todavía no existen — tú decides si los construyo. Cuéntame qué te pareció y vota en el canal qué sigue. ',
+      enlaceFormulario('Dar mi opinión (1 min)'),
+    );
+    if (URL_CANAL) respuesta.append(' · ', enlaceCanal('Ir al canal'));
+    boton.replaceWith(respuesta);
+  });
+  consola.agregar(boton);
 }
 
 function reportarFallo(fallo) {
