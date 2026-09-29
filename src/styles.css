@@ -547,7 +547,8 @@ button {
   line-height: 1.45;
   min-height: 46px;
   display: flex;
-  align-items: center;
+  /* baseline: con mensajes de dos líneas, la marca se queda en la primera. */
+  align-items: baseline;
   gap: 12px;
 }
 
@@ -555,6 +556,26 @@ button {
   content: '▸';
   color: var(--gris);
   flex: 0 0 auto;
+}
+
+.consola-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.consola-anexo {
+  margin-top: 10px;
+}
+
+.puerta {
+  margin: 0;
+}
+
+.enlace {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .consola.error {

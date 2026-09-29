@@ -554,7 +554,8 @@ button {
   line-height: 1.45;
   min-height: 46px;
   display: flex;
-  align-items: center;
+  /* baseline: con mensajes de dos líneas, la marca se queda en la primera. */
+  align-items: baseline;
   gap: 12px;
 }
 
@@ -562,6 +563,26 @@ button {
   content: '▸';
   color: var(--gris);
   flex: 0 0 auto;
+}
+
+.consola-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.consola-anexo {
+  margin-top: 10px;
+}
+
+.puerta {
+  margin: 0;
+}
+
+.enlace {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .consola.error {
@@ -2294,13 +2315,26 @@ function crearMarcador(contenedor) {
 }
 
 function crearConsola(elemento) {
+  let cuerpo = null;
+
   function escribir(texto, tipo = 'normal') {
-    elemento.textContent = texto;
+    cuerpo = document.createElement('div');
+    cuerpo.className = 'consola-texto';
+    cuerpo.textContent = texto;
+    elemento.replaceChildren(cuerpo);
     elemento.classList.toggle('error', tipo === 'error');
     elemento.classList.toggle('exito', tipo === 'exito');
   }
 
-  return { escribir };
+  /** Agrega algo debajo del mensaje actual; el siguiente escribir() lo borra. */
+  function agregar(nodo) {
+    const anexo = document.createElement('div');
+    anexo.className = 'consola-anexo';
+    anexo.append(nodo);
+    cuerpo?.append(anexo);
+  }
+
+  return { escribir, agregar };
 }
 return { crearMarcador, crearConsola };
 })();
@@ -2471,6 +2505,38 @@ return { CODIGO_GOATCOUNTER, crearMetricas, CLAVE_VISITAS, fechaLocal, contarDia
 })();
 
 // ======================================================================
+// src/ui/enlaces.js
+// ======================================================================
+const __mod_src_ui_enlaces_js = (() => {
+// Enlaces hacia afuera: el formulario de opinión y el canal (CAMBIOS-cohorte-0
+// §5 y §6). Viven aquí para que cambiar un link sea tocar una sola línea.
+
+const URL_FORMULARIO = 'https://tally.so/r/kdMyER';
+
+// Pendiente: link de invitación al canal. Mientras esté vacío, "Ir al canal" no
+// se muestra: mejor no ofrecerlo que mandar a alguien a un lugar equivocado.
+const URL_CANAL = '';
+
+/**
+ * Link que abre en otra pestaña, para no sacarlos del juego a media partida.
+ * @param {string} texto
+ * @param {string} url
+ * @param {() => void} alTocar
+ */
+function crearEnlace(texto, url, alTocar) {
+  const enlace = document.createElement('a');
+  enlace.className = 'enlace';
+  enlace.href = url;
+  enlace.target = '_blank';
+  enlace.rel = 'noopener';
+  enlace.textContent = texto;
+  enlace.addEventListener('click', alTocar);
+  return enlace;
+}
+return { URL_FORMULARIO, URL_CANAL, crearEnlace };
+})();
+
+// ======================================================================
 // src/ui/runner.js
 // ======================================================================
 const __mod_src_ui_runner_js = (() => {
@@ -2591,6 +2657,7 @@ const { crearRenderizador } = __mod_src_ui_renderer_js;
 const { crearPaleta } = __mod_src_ui_palette_js;
 const { crearMarcador, crearConsola } = __mod_src_ui_hud_js;
 const { crearMetricas } = __mod_src_ui_metricas_js;
+const { crearEnlace, URL_FORMULARIO, URL_CANAL } = __mod_src_ui_enlaces_js;
 const { crearCorredor, VELOCIDAD_NORMAL, VELOCIDAD_LENTA, TOPE_ANIMACION_MS } = __mod_src_ui_runner_js;
 
 const $ = (id) => document.getElementById(id);
@@ -2759,6 +2826,7 @@ function correr(intervalo, cual) {
       if (resultado.llego) {
         editor.limpiarResaltado();
         consola.escribir(mensajeDeVictoria(bloques), 'exito');
+        if (nivel.numero === 4 || nivel.esBonus) ofrecerMasNiveles();
         metricas.registrarUnaVez(`n${nivel.numero}-completado`);
         if (bloques <= nivel.par) metricas.registrarUnaVez(`n${nivel.numero}-en-par`);
       } else {
@@ -2787,6 +2855,38 @@ function mensajeDeVictoria(bloques) {
   if (bloques < par) return `Llegaste en ${bloques} bloques. Bajo par (${par}).`;
   if (bloques === par) return `Llegaste en ${bloques} bloques. Justo en el par.`;
   return `Llegaste en ${bloques} bloques. El par es ${par}: ¿se puede decir más corto?`;
+}
+
+// --- Puerta "Quiero más niveles" (CAMBIOS-cohorte-0 §5) ---------------------
+//
+// Mide si quieren más sin prometer nada que no exista: al primer clic dice la
+// verdad y los manda a opinar.
+
+function enlaceFormulario(texto) {
+  return crearEnlace(texto, URL_FORMULARIO, () => metricas.registrarUnaVez('feedback-clic'));
+}
+
+function enlaceCanal(texto) {
+  return crearEnlace(texto, URL_CANAL, () => metricas.registrarUnaVez('canal-clic'));
+}
+
+function ofrecerMasNiveles() {
+  const boton = document.createElement('button');
+  boton.type = 'button';
+  boton.className = 'boton';
+  boton.textContent = 'Quiero más niveles →';
+  boton.addEventListener('click', () => {
+    metricas.registrarUnaVez('mas-niveles-clic');
+    const respuesta = document.createElement('p');
+    respuesta.className = 'puerta';
+    respuesta.append(
+      'Todavía no existen — tú decides si los construyo. Cuéntame qué te pareció y vota en el canal qué sigue. ',
+      enlaceFormulario('Dar mi opinión (1 min)'),
+    );
+    if (URL_CANAL) respuesta.append(' · ', enlaceCanal('Ir al canal'));
+    boton.replaceWith(respuesta);
+  });
+  consola.agregar(boton);
 }
 
 function reportarFallo(fallo) {
