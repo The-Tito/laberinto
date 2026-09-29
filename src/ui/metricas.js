@@ -7,6 +7,9 @@
 // Regla dura: la medición nunca rompe el juego. Con doble clic (file://), en un
 // servidor local, con ?nometricas o sin red, esto se apaga en silencio.
 //
+// Para probar a mano: ?depurar-metricas escribe cada evento en la consola del
+// navegador en vez de enviarlo. Funciona también con doble clic.
+//
 // El envío y la ubicación entran por parámetro para que los tests corran en Node,
 // igual que generarLaberinto recibe `aleatorio`.
 //
@@ -28,6 +31,7 @@ function enviarConImagen(url) {
  * @param {{
  *   ubicacion?: { protocol: string, pathname: string, search: string },
  *   enviar?: (url: string) => unknown,
+ *   mostrar?: (...datos: unknown[]) => void,
  *   codigo?: string,
  *   referente?: string,
  *   pantalla?: string,
@@ -36,24 +40,33 @@ function enviarConImagen(url) {
 export function crearMetricas({
   ubicacion = globalThis.location,
   enviar = enviarConImagen,
+  mostrar = (...datos) => globalThis.console?.info(...datos),
   codigo = CODIGO_GOATCOUNTER,
   referente = '',
   pantalla = '',
 } = {}) {
   const enviados = new Set();
 
-  function activa() {
+  /** @returns {'apagada' | 'depurar' | 'enviar'} */
+  function modo() {
     try {
-      if (ubicacion?.protocol !== 'https:') return false;
-      return !new URLSearchParams(ubicacion.search).has('nometricas');
+      const query = new URLSearchParams(ubicacion?.search ?? '');
+      if (query.has('nometricas')) return 'apagada';
+      if (query.has('depurar-metricas')) return 'depurar';
+      return ubicacion?.protocol === 'https:' ? 'enviar' : 'apagada';
     } catch {
-      return false;
+      return 'apagada';
     }
   }
 
   function mandar(parametros) {
-    if (!activa()) return;
+    const actual = modo();
+    if (actual === 'apagada') return;
     try {
+      if (actual === 'depurar') {
+        mostrar('[métricas]', parametros.e ? `evento ${parametros.p}` : 'visita', parametros);
+        return;
+      }
       const url = new URL(`https://${codigo}.goatcounter.com/count`);
       for (const [clave, valor] of Object.entries(parametros)) {
         if (valor) url.searchParams.set(clave, valor);
