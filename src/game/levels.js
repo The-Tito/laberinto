@@ -83,7 +83,7 @@ repetir (4) {
     pistas: [
       'Si contar ya no sirve, ¿qué podría preguntarse el personaje en cada paso para saber si puede seguir?',
       'caminoLibre() contesta sí o no. Con mientras, el personaje avanza mientras haya camino, sin que tú cuentes nada.',
-      'El camino repite un patrón: avanzar hasta la pared → girar a la derecha → avanzar hasta la pared → girar a la izquierda. repetir (___) { mientras (___) { avanzar(); } girar______(); ... }',
+      'Cada tramo es igual: avanza mientras haya camino y luego gira. repetir (___) { mientras (___) { avanzar(); } ___ }',
     ],
     mapa: mapa(`
       ##########
@@ -122,7 +122,7 @@ repetir (4) {
     pistas: [
       'Si estuvieras en un laberinto de verdad con los ojos cerrados, ¿qué regla seguirías con una mano en la pared para no perderte?',
       'Regla de la mano derecha: si a tu derecha hay camino, gira a la derecha y avanza. Si no, y enfrente hay camino, avanza. Si tampoco, gira a la izquierda. Para elegir entre caminos se usa si / sino.',
-      'repetir (40) { si (caminoLibreDerecha()) { ___ } sino { si (___) { ___ } sino { ___ } } }',
+      'repetir (40) { si (caminoLibreDerecha()) { ___ } sino { ___ } }',
     ],
     mapa: mapa(`
       #########
@@ -160,7 +160,7 @@ repetir (4) {
     pistas: [
       '¿Qué parte de tu programa del nivel 4 dependía de ese mapa exacto?',
       'El 40 del nivel 4 era una apuesta. repetirHastaLaMeta repite lo necesario, ni más ni menos.',
-      'Tu regla del nivel 4 ya funciona aquí. Solo cambia el bloque de afuera: repetirHastaLaMeta { ___ }',
+      'Si tu regla esperaba a chocar para decidir, a veces se pierde. Prueba decidir en cada paso: repetirHastaLaMeta { si (caminoLibreDerecha()) { ___ } sino { ___ } }',
     ],
     esBonus: true,
     aleatorio: true,
