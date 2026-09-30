@@ -5,7 +5,12 @@ import assert from 'node:assert/strict';
 
 import { crearMetricas } from '../src/ui/metricas.js';
 
-const PUBLICADA = { protocol: 'https:', pathname: '/laberinto/', search: '?ref=canal' };
+const PUBLICADA = {
+  protocol: 'https:',
+  hostname: 'juego-laberinto.pages.dev',
+  pathname: '/',
+  search: '?ref=canal',
+};
 
 /** Métricas con un envío falso que anota cada URL. */
 function conEspia(opciones = {}) {
@@ -48,7 +53,7 @@ test('la visita lleva la ruta y el ?ref=canal, y no se marca como evento', () =>
   const { metricas, urls } = conEspia({ pantalla: '1440,900,2' });
   metricas.registrarVisita();
   const [url] = urls;
-  assert.equal(url.searchParams.get('p'), '/laberinto/');
+  assert.equal(url.searchParams.get('p'), '/');
   assert.equal(url.searchParams.get('q'), '?ref=canal');
   assert.equal(url.searchParams.get('s'), '1440,900,2');
   assert.equal(url.searchParams.has('e'), false);
@@ -60,6 +65,15 @@ test('§8.2 · registrar no hace nada fuera de https', () => {
     metricas.registrar('n1-primera-corrida');
     metricas.registrarVisita();
     assert.equal(urls.length, 0, protocol);
+  }
+});
+
+test('no mide en las vistas previas ni en otros dominios, aunque sean https', () => {
+  for (const hostname of ['release-1-1-0.juego-laberinto.pages.dev', 'a1b2c3.juego-laberinto.pages.dev', 'copia.ejemplo.com']) {
+    const { metricas, urls } = conEspia({ ubicacion: { ...PUBLICADA, hostname } });
+    metricas.registrar('n1-completado');
+    metricas.registrarVisita();
+    assert.equal(urls.length, 0, hostname);
   }
 });
 

@@ -7,6 +7,10 @@
 // Regla dura: la medición nunca rompe el juego. Con doble clic (file://), en un
 // servidor local, con ?nometricas o sin red, esto se apaga en silencio.
 //
+// Sólo se mide en el dominio publicado: las vistas previas de Cloudflare
+// (<rama>.juego-laberinto.pages.dev) también son https, y medirlas mezclaría las
+// pruebas con los datos del canal.
+//
 // Para probar a mano: ?depurar-metricas escribe cada evento en la consola del
 // navegador en vez de enviarlo. Funciona también con doble clic.
 //
@@ -21,6 +25,7 @@
 //   rnd ignorado; sólo evita caché
 
 export const CODIGO_GOATCOUNTER = 'antonio-selvas';
+export const DOMINIO_PUBLICADO = 'juego-laberinto.pages.dev';
 
 /** Envío real: el pixel de GoatCounter. Los fallos llegan como evento, no lanzan. */
 function enviarConImagen(url) {
@@ -29,10 +34,11 @@ function enviarConImagen(url) {
 
 /**
  * @param {{
- *   ubicacion?: { protocol: string, pathname: string, search: string },
+ *   ubicacion?: { protocol: string, hostname: string, pathname: string, search: string },
  *   enviar?: (url: string) => unknown,
  *   mostrar?: (...datos: unknown[]) => void,
  *   codigo?: string,
+ *   dominio?: string,
  *   referente?: string,
  *   pantalla?: string,
  * }} opciones
@@ -42,6 +48,7 @@ export function crearMetricas({
   enviar = enviarConImagen,
   mostrar = (...datos) => globalThis.console?.info(...datos),
   codigo = CODIGO_GOATCOUNTER,
+  dominio = DOMINIO_PUBLICADO,
   referente = '',
   pantalla = '',
 } = {}) {
@@ -53,7 +60,8 @@ export function crearMetricas({
       const query = new URLSearchParams(ubicacion?.search ?? '');
       if (query.has('nometricas')) return 'apagada';
       if (query.has('depurar-metricas')) return 'depurar';
-      return ubicacion?.protocol === 'https:' ? 'enviar' : 'apagada';
+      const publicada = ubicacion?.protocol === 'https:' && ubicacion?.hostname === dominio;
+      return publicada ? 'enviar' : 'apagada';
     } catch {
       return 'apagada';
     }
