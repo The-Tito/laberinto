@@ -55,7 +55,7 @@ button {
   height: 100vh;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   gap: 12px;
 }
 
@@ -487,6 +487,13 @@ button {
   border-width: 1px;
 }
 
+/* La pista pide atención una sola vez, al tercer fallo: está viva, por eso lima. */
+.boton.resaltado {
+  background: var(--lima);
+  border-width: 2px;
+  box-shadow: 3px 3px 0 var(--tinta);
+}
+
 .separador {
   flex: 1;
 }
@@ -547,7 +554,8 @@ button {
   line-height: 1.45;
   min-height: 46px;
   display: flex;
-  align-items: center;
+  /* baseline: con mensajes de dos líneas, la marca se queda en la primera. */
+  align-items: baseline;
   gap: 12px;
 }
 
@@ -555,6 +563,58 @@ button {
   content: '▸';
   color: var(--gris);
   flex: 0 0 auto;
+}
+
+.consola-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.consola-anexo {
+  margin-top: 10px;
+}
+
+.puerta {
+  margin: 0;
+}
+
+/* El canal de Instagram sólo se abre en la app: el link, sólo en pantallas táctiles. */
+.solo-tactil {
+  display: none;
+}
+
+.solo-compu {
+  display: block;
+  margin-top: 4px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .solo-tactil {
+    display: inline;
+  }
+
+  .solo-compu {
+    display: none;
+  }
+}
+
+/* Empujón y pistas: separados del mensaje con una regla fina, para que no se
+   lean como parte del error. */
+.nota-consola {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px dashed var(--hairline);
+}
+
+.consola.error .nota-consola {
+  border-top-color: rgba(233, 233, 231, 0.35);
+}
+
+.enlace {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .consola.error {
@@ -574,6 +634,47 @@ button {
 .consola.exito::before {
   content: '★';
   color: var(--tinta);
+}
+
+/* --- Pie ---------------------------------------------------------------- */
+
+/* Discreto a propósito: dice qué se mide, sin competir con el juego. */
+.pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--gris);
+}
+
+.pie .enlace {
+  color: var(--tinta);
+}
+
+/* --- Aviso para celular ------------------------------------------------- */
+
+.aviso-movil {
+  display: none;
+}
+
+.aviso-texto {
+  flex: 1 1 200px;
+}
+
+.aviso-cerrar {
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.aviso-url {
+  user-select: all;
+  word-break: break-all;
+  font-weight: 700;
 }
 
 /* --- Pantallas angostas -------------------------------------------------- */
@@ -603,5 +704,28 @@ button {
 
   .grupo {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 699px) {
+  .aviso-movil:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 14px 0;
+    padding: 10px 12px;
+    border: var(--borde);
+    background: var(--papel);
+    box-shadow: var(--sombra);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  /* iOS hace zoom al escribir en campos de menos de 16px. El espejo del
+     resaltado hereda la misma fuente, así que sigue alineado. */
+  .editor {
+    font-size: 16px;
   }
 }

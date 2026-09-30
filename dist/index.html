@@ -62,7 +62,7 @@ button {
   height: 100vh;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   gap: 12px;
 }
 
@@ -494,6 +494,13 @@ button {
   border-width: 1px;
 }
 
+/* La pista pide atención una sola vez, al tercer fallo: está viva, por eso lima. */
+.boton.resaltado {
+  background: var(--lima);
+  border-width: 2px;
+  box-shadow: 3px 3px 0 var(--tinta);
+}
+
 .separador {
   flex: 1;
 }
@@ -554,7 +561,8 @@ button {
   line-height: 1.45;
   min-height: 46px;
   display: flex;
-  align-items: center;
+  /* baseline: con mensajes de dos líneas, la marca se queda en la primera. */
+  align-items: baseline;
   gap: 12px;
 }
 
@@ -562,6 +570,58 @@ button {
   content: '▸';
   color: var(--gris);
   flex: 0 0 auto;
+}
+
+.consola-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.consola-anexo {
+  margin-top: 10px;
+}
+
+.puerta {
+  margin: 0;
+}
+
+/* El canal de Instagram sólo se abre en la app: el link, sólo en pantallas táctiles. */
+.solo-tactil {
+  display: none;
+}
+
+.solo-compu {
+  display: block;
+  margin-top: 4px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .solo-tactil {
+    display: inline;
+  }
+
+  .solo-compu {
+    display: none;
+  }
+}
+
+/* Empujón y pistas: separados del mensaje con una regla fina, para que no se
+   lean como parte del error. */
+.nota-consola {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px dashed var(--hairline);
+}
+
+.consola.error .nota-consola {
+  border-top-color: rgba(233, 233, 231, 0.35);
+}
+
+.enlace {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .consola.error {
@@ -581,6 +641,47 @@ button {
 .consola.exito::before {
   content: '★';
   color: var(--tinta);
+}
+
+/* --- Pie ---------------------------------------------------------------- */
+
+/* Discreto a propósito: dice qué se mide, sin competir con el juego. */
+.pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--gris);
+}
+
+.pie .enlace {
+  color: var(--tinta);
+}
+
+/* --- Aviso para celular ------------------------------------------------- */
+
+.aviso-movil {
+  display: none;
+}
+
+.aviso-texto {
+  flex: 1 1 200px;
+}
+
+.aviso-cerrar {
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.aviso-url {
+  user-select: all;
+  word-break: break-all;
+  font-weight: 700;
 }
 
 /* --- Pantallas angostas -------------------------------------------------- */
@@ -612,9 +713,38 @@ button {
     grid-column: 1 / -1;
   }
 }
+
+@media (max-width: 699px) {
+  .aviso-movil:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 14px 0;
+    padding: 10px 12px;
+    border: var(--borde);
+    background: var(--papel);
+    box-shadow: var(--sombra);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  /* iOS hace zoom al escribir en campos de menos de 16px. El espejo del
+     resaltado hereda la misma fuente, así que sigue alineado. */
+  .editor {
+    font-size: 16px;
+  }
+}
     </style>
   </head>
   <body>
+    <div class="aviso-movil" id="aviso-movil" role="note">
+      <span class="aviso-texto">Esto se disfruta más en una computadora. Si puedes, ábrelo ahí.</span>
+      <button class="boton" id="copiar-link" type="button">Copiar link</button>
+      <button class="aviso-cerrar" id="cerrar-aviso" type="button" aria-label="Cerrar aviso">×</button>
+    </div>
+
     <div class="marco">
       <header class="barra">
         <div class="marca">LABERINTO</div>
@@ -669,11 +799,20 @@ button {
         <button class="boton" id="correr">Correr</button>
         <button class="boton" id="lento">Cámara lenta</button>
         <button class="boton boton-fantasma" id="reiniciar">Reiniciar</button>
+        <button class="boton boton-fantasma" id="pista-btn" type="button" hidden>¿Atorado? Pista</button>
         <div class="separador"></div>
         <div class="marcador" id="marcador"></div>
       </div>
 
       <div class="consola" id="consola">Escribe tu programa y dale a Correr.</div>
+
+      <footer class="pie">
+        <span>Sin cuentas ni cookies. Contamos visitas de forma anónima para mejorar el juego.</span>
+        <span aria-hidden="true">·</span>
+        <a class="enlace" id="opinion" target="_blank" rel="noopener">¿Qué te pareció?</a>
+        <span aria-hidden="true">·</span>
+        <span>Hecho por @_antonio.selvas</span>
+      </footer>
     </div>
     <script>
 (() => {
@@ -1292,6 +1431,13 @@ const NIVELES = [
     titulo: 'Pasillo recto',
     descubrimiento: 'El bucle repetir',
     pista: 'Seis pasos hasta la meta. Se puede en dos bloques.',
+    // Pistas escalonadas (CAMBIOS-cohorte-0 §7b, textos de docs/PISTAS.md):
+    // pregunta que hace mirar → concepto → estructura con huecos.
+    pistas: [
+      '¿Qué acción repites una y otra vez para llegar a la meta? ¿Cuántas veces?',
+      'Cuando algo se repite igual, hay un comando para decirlo una sola vez: repetir. Búscalo en el panel.',
+      'repetir (___) { ___ }',
+    ],
     mapa: mapa(`
       #########
       #S.....M#
@@ -1311,6 +1457,11 @@ const NIVELES = [
     titulo: 'Forma de L',
     descubrimiento: 'Los giros, y repetir más de una vez',
     pista: 'El camino da vuelta. ¿Cuántos pasos antes de girar?',
+    pistas: [
+      'Imagina que tú eres el personaje y estás adentro del laberinto. Cuando llegues a la esquina, ¿hacia qué lado giras tú? No pienses en la pantalla.',
+      'Girar no te mueve de casilla: solo cambia hacia dónde miras. Después de girar, avanzar() te lleva hacia tu nuevo "enfrente".',
+      'repetir (___) { avanzar(); } → girar______(); → repetir (___) { avanzar(); }',
+    ],
     mapa: mapa(`
       #######
       #S....#
@@ -1338,6 +1489,11 @@ repetir (4) {
     titulo: 'Zigzag',
     descubrimiento: 'mientras — el programa averigua solo cuántos pasos dar',
     pista: 'Los tramos miden distinto. Contar pasos ya no sirve.',
+    pistas: [
+      'Si contar ya no sirve, ¿qué podría preguntarse el personaje en cada paso para saber si puede seguir?',
+      'caminoLibre() contesta sí o no. Con mientras, el personaje avanza mientras haya camino, sin que tú cuentes nada.',
+      'Cada tramo es igual: avanza mientras haya camino y luego gira. repetir (___) { mientras (___) { avanzar(); } ___ }',
+    ],
     mapa: mapa(`
       ##########
       #S...#####
@@ -1372,6 +1528,11 @@ repetir (4) {
     titulo: 'Laberinto',
     descubrimiento: 'si / sino, y combinar estructuras',
     pista: 'Hay callejones sin salida. Una regla sencilla los resuelve todos.',
+    pistas: [
+      'Si estuvieras en un laberinto de verdad con los ojos cerrados, ¿qué regla seguirías con una mano en la pared para no perderte?',
+      'Regla de la mano derecha: si a tu derecha hay camino, gira a la derecha y avanza. Si no, y enfrente hay camino, avanza. Si tampoco, gira a la izquierda. Para elegir entre caminos se usa si / sino.',
+      'repetir (40) { si (caminoLibreDerecha()) { ___ } sino { ___ } }',
+    ],
     mapa: mapa(`
       #########
       #S#.....#
@@ -1405,6 +1566,11 @@ repetir (4) {
     titulo: 'BONUS · Laberinto aleatorio',
     descubrimiento: 'Un programa que resuelve problemas que su autor nunca vio',
     pista: 'Otro laberinto cada vez que corres. Contar pasos ya no es opción.',
+    pistas: [
+      '¿Qué parte de tu programa del nivel 4 dependía de ese mapa exacto?',
+      'El 40 del nivel 4 era una apuesta. repetirHastaLaMeta repite lo necesario, ni más ni menos.',
+      'Si tu regla esperaba a chocar para decidir, a veces se pierde. Prueba decidir en cada paso: repetirHastaLaMeta { si (caminoLibreDerecha()) { ___ } sino { ___ } }',
+    ],
     esBonus: true,
     aleatorio: true,
     generarMapa: () => generarLaberinto({ celdasAncho: 5, celdasAlto: 5 }),
@@ -2294,15 +2460,236 @@ function crearMarcador(contenedor) {
 }
 
 function crearConsola(elemento) {
+  let cuerpo = null;
+
   function escribir(texto, tipo = 'normal') {
-    elemento.textContent = texto;
+    cuerpo = document.createElement('div');
+    cuerpo.className = 'consola-texto';
+    cuerpo.textContent = texto;
+    elemento.replaceChildren(cuerpo);
     elemento.classList.toggle('error', tipo === 'error');
     elemento.classList.toggle('exito', tipo === 'exito');
   }
 
-  return { escribir };
+  /** Agrega algo debajo del mensaje actual; el siguiente escribir() lo borra. */
+  function agregar(nodo) {
+    const anexo = document.createElement('div');
+    anexo.className = 'consola-anexo';
+    anexo.append(nodo);
+    cuerpo?.append(anexo);
+  }
+
+  return { escribir, agregar };
 }
 return { crearMarcador, crearConsola };
+})();
+
+// ======================================================================
+// src/ui/metricas.js
+// ======================================================================
+const __mod_src_ui_metricas_js = (() => {
+// Medición anónima para la cohorte 0 (CAMBIOS-cohorte-0 §3).
+//
+// GoatCounter, sin cookies ni localStorage. Es provisional: la herramienta
+// definitiva se elige en la Fase 5, y por eso todo lo que sabe de GoatCounter
+// vive en este archivo y en ningún otro.
+//
+// Regla dura: la medición nunca rompe el juego. Con doble clic (file://), en un
+// servidor local, con ?nometricas o sin red, esto se apaga en silencio.
+//
+// Sólo se mide en el dominio publicado: las vistas previas de Cloudflare
+// (<rama>.juego-laberintos.pages.dev) también son https, y medirlas mezclaría las
+// pruebas con los datos del canal.
+//
+// Para probar a mano: ?depurar-metricas escribe cada evento en la consola del
+// navegador en vez de enviarlo. Funciona también con doble clic.
+//
+// El envío y la ubicación entran por parámetro para que los tests corran en Node,
+// igual que generarLaberinto recibe `aleatorio`.
+//
+// Formato del endpoint (goatcounter.com/help/pixel):
+//   GET https://CODIGO.goatcounter.com/count?p=<ruta o evento>&e=true
+//   p   ruta o nombre del evento; un evento no puede empezar con "/"
+//   e   true si es evento
+//   r   referente · q  query de la página (campañas) · s  "ancho,alto,escala"
+//   rnd ignorado; sólo evita caché
+
+const CODIGO_GOATCOUNTER = 'antonio-selvas';
+const DOMINIO_PUBLICADO = 'juego-laberintos.pages.dev';
+
+/** Envío real: el pixel de GoatCounter. Los fallos llegan como evento, no lanzan. */
+function enviarConImagen(url) {
+  new Image().src = url;
+}
+
+/**
+ * @param {{
+ *   ubicacion?: { protocol: string, hostname: string, pathname: string, search: string },
+ *   enviar?: (url: string) => unknown,
+ *   mostrar?: (...datos: unknown[]) => void,
+ *   codigo?: string,
+ *   dominio?: string,
+ *   referente?: string,
+ *   pantalla?: string,
+ * }} opciones
+ */
+function crearMetricas({
+  ubicacion = globalThis.location,
+  enviar = enviarConImagen,
+  mostrar = (...datos) => globalThis.console?.info(...datos),
+  codigo = CODIGO_GOATCOUNTER,
+  dominio = DOMINIO_PUBLICADO,
+  referente = '',
+  pantalla = '',
+} = {}) {
+  const enviados = new Set();
+
+  /** @returns {'apagada' | 'depurar' | 'enviar'} */
+  function modo() {
+    try {
+      const query = new URLSearchParams(ubicacion?.search ?? '');
+      if (query.has('nometricas')) return 'apagada';
+      if (query.has('depurar-metricas')) return 'depurar';
+      const publicada = ubicacion?.protocol === 'https:' && ubicacion?.hostname === dominio;
+      return publicada ? 'enviar' : 'apagada';
+    } catch {
+      return 'apagada';
+    }
+  }
+
+  function mandar(parametros) {
+    const actual = modo();
+    if (actual === 'apagada') return;
+    try {
+      if (actual === 'depurar') {
+        mostrar('[métricas]', parametros.e ? `evento ${parametros.p}` : 'visita', parametros);
+        return;
+      }
+      const url = new URL(`https://${codigo}.goatcounter.com/count`);
+      for (const [clave, valor] of Object.entries(parametros)) {
+        if (valor) url.searchParams.set(clave, valor);
+      }
+      url.searchParams.set('rnd', Math.random().toString(36).slice(2));
+      const respuesta = enviar(url.toString());
+      respuesta?.catch?.(() => {});
+    } catch {
+      // Sin red, bloqueada o lo que sea: el juego sigue.
+    }
+  }
+
+  /** Pageview al abrir. `q` lleva el ?ref=canal para separar la campaña. */
+  function registrarVisita() {
+    mandar({
+      p: ubicacion?.pathname || '/',
+      q: ubicacion?.search,
+      r: referente,
+      s: pantalla,
+    });
+  }
+
+  /** @param {string} nombre p. ej. "n3-error-LIMITE_PASOS" */
+  function registrar(nombre) {
+    mandar({ p: nombre.replace(/^\/+/, ''), e: 'true' });
+  }
+
+  /** Igual que registrar, pero un mismo evento sale una sola vez por sesión. */
+  function registrarUnaVez(nombre) {
+    if (enviados.has(nombre)) return;
+    enviados.add(nombre);
+    registrar(nombre);
+  }
+
+  /**
+   * Recurrencia (cambio 2): sólo avisa el día en que el contador sube, para que
+   * recargar la página el mismo día no repita el evento.
+   * @param {Parameters<typeof contarDiaDeVisita>[0]} [opciones]
+   */
+  function registrarDiaDeVisita(opciones) {
+    const visita = contarDiaDeVisita(opciones);
+    if (!visita?.esNuevoDia) return;
+    if (visita.dias === 2) registrarUnaVez('visita-dia-2');
+    else if (visita.dias >= 3) registrarUnaVez('visita-dia-3-mas');
+  }
+
+  return { registrarVisita, registrar, registrarUnaVez, registrarDiaDeVisita };
+}
+
+// --- Contador de visitas (CAMBIOS-cohorte-0 §4) ---------------------------
+//
+// Un solo registro local y anónimo: cuántos días distintos ha abierto el juego y
+// cuál fue el último. Nada más. No es guardado en la nube (SPEC §11).
+
+const CLAVE_VISITAS = 'laberinto-visitas';
+
+/** Fecha local AAAA-MM-DD: "un día" es el día de quien juega, no el de UTC. */
+function fechaLocal(fecha = new Date()) {
+  const dos = (n) => String(n).padStart(2, '0');
+  return `${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}`;
+}
+
+/**
+ * Suma un día si hoy es distinto al último guardado.
+ * @param {{ almacenamiento?: Storage, hoy?: string }} [opciones]
+ * @returns {{ dias: number, esNuevoDia: boolean } | null} null si no hay almacenamiento
+ */
+function contarDiaDeVisita({ almacenamiento, hoy = fechaLocal() } = {}) {
+  try {
+    // Leer localStorage puede lanzar por sí solo (Safari privado, cookies bloqueadas).
+    const guardado = almacenamiento ?? globalThis.localStorage;
+    if (!guardado) return null;
+
+    let anterior = null;
+    try {
+      anterior = JSON.parse(guardado.getItem(CLAVE_VISITAS));
+    } catch {
+      // Registro dañado: se empieza de nuevo.
+    }
+    const dias = Number.isInteger(anterior?.dias) && anterior.dias > 0 ? anterior.dias : 0;
+    if (dias > 0 && anterior.ultima === hoy) return { dias, esNuevoDia: false };
+
+    const nuevo = { dias: dias + 1, ultima: hoy };
+    guardado.setItem(CLAVE_VISITAS, JSON.stringify(nuevo));
+    return { dias: nuevo.dias, esNuevoDia: true };
+  } catch {
+    return null;
+  }
+}
+return { CODIGO_GOATCOUNTER, DOMINIO_PUBLICADO, crearMetricas, CLAVE_VISITAS, fechaLocal, contarDiaDeVisita };
+})();
+
+// ======================================================================
+// src/ui/enlaces.js
+// ======================================================================
+const __mod_src_ui_enlaces_js = (() => {
+// Enlaces hacia afuera: el formulario de opinión y el canal (CAMBIOS-cohorte-0
+// §5 y §6). Viven aquí para que cambiar un link sea tocar una sola línea.
+
+const URL_FORMULARIO = 'https://tally.so/r/kdMyER';
+
+// Invitación al canal de Instagram. Vacía a propósito: probado en v1.1.0, el
+// link de un canal no abre ni desde el navegador interno de Instagram (siempre
+// pide "usa la app"). Vacía, "Ir al canal" no se muestra; quienes juegan ya
+// están en el canal. La invitación era:
+// https://www.instagram.com/channel/aJUxgoM_pkdEi1lK/
+const URL_CANAL = '';
+
+/**
+ * Link que abre en otra pestaña, para no sacarlos del juego a media partida.
+ * @param {string} texto
+ * @param {string} url
+ * @param {() => void} alTocar
+ */
+function crearEnlace(texto, url, alTocar) {
+  const enlace = document.createElement('a');
+  enlace.className = 'enlace';
+  enlace.href = url;
+  enlace.target = '_blank';
+  enlace.rel = 'noopener';
+  enlace.textContent = texto;
+  enlace.addEventListener('click', alTocar);
+  return enlace;
+}
+return { URL_FORMULARIO, URL_CANAL, crearEnlace };
 })();
 
 // ======================================================================
@@ -2425,6 +2812,8 @@ const { crearEditor } = __mod_src_ui_editor_js;
 const { crearRenderizador } = __mod_src_ui_renderer_js;
 const { crearPaleta } = __mod_src_ui_palette_js;
 const { crearMarcador, crearConsola } = __mod_src_ui_hud_js;
+const { crearMetricas } = __mod_src_ui_metricas_js;
+const { crearEnlace, URL_FORMULARIO, URL_CANAL } = __mod_src_ui_enlaces_js;
 const { crearCorredor, VELOCIDAD_NORMAL, VELOCIDAD_LENTA, TOPE_ANIMACION_MS } = __mod_src_ui_runner_js;
 
 const $ = (id) => document.getElementById(id);
@@ -2440,11 +2829,21 @@ const paleta = crearPaleta($('comandos'), { alInsertar: (plantilla) => editor.in
 const marcador = crearMarcador($('marcador'));
 const consola = crearConsola($('consola'));
 const corredor = crearCorredor();
+const metricas = crearMetricas({
+  referente: document.referrer,
+  pantalla: `${screen.width},${screen.height},${devicePixelRatio}`,
+});
 
 const borradores = new Map(); // el programa de cada nivel se conserva al cambiar
 let nivel = NIVELES[0];
 let mundo = null;
 let recorrido = new Set();
+let corridasBonus = 0; // para bonus-5-corridas
+// Un solo contador por nivel: errores y corridas sin meta suman igual. Al tercero
+// es cuando alguien empieza a atorarse de verdad (CAMBIOS-cohorte-0 §3).
+const fallosPorNivel = new Map();
+const pistasVistas = new Map(); // nivel → cuántas pistas ha abierto
+let nodoPista = null; // la pista en consola, para cambiarla sin borrar el error
 
 // --- Dibujo ---------------------------------------------------------------
 
@@ -2490,6 +2889,10 @@ function cargarNivel(numero, { conservarBorrador = true } = {}) {
 
   paleta.mostrar(nivel.permitidos, nivel.esBonus ? ['repetirHastaLaMeta'] : []);
   pintarNavegacion();
+  // Las pistas no se ofrecen antes de que hagan falta (SPEC §10): el botón sólo
+  // existe en los niveles donde ya fallaron 3 veces.
+  $('pista-btn').hidden = (fallosPorNivel.get(nivel.numero) ?? 0) < 3;
+  $('pista-btn').classList.remove('resaltado');
 
   editor.limpiarResaltado();
   editor.valor = borradores.get(nivel.numero) ?? '';
@@ -2541,11 +2944,17 @@ function prepararMundo() {
 function fijarBotones(corriendo, cual) {
   $('correr').disabled = corriendo;
   $('lento').disabled = corriendo;
+  // Una pista pedida a media corrida la borraría el mensaje final.
+  $('pista-btn').disabled = corriendo;
   $('correr').classList.toggle('corriendo', corriendo && cual === 'correr');
   $('lento').classList.toggle('corriendo', corriendo && cual === 'lento');
 }
 
 function correr(intervalo, cual) {
+  metricas.registrarUnaVez(`n${nivel.numero}-primera-corrida`);
+  if (cual === 'lento') metricas.registrarUnaVez('camara-lenta');
+  if (nivel.esBonus && ++corridasBonus === 5) metricas.registrarUnaVez('bonus-5-corridas');
+
   corredor.detener();
   editor.limpiarResaltado();
   prepararMundo();
@@ -2581,12 +2990,17 @@ function correr(intervalo, cual) {
       if (resultado.llego) {
         editor.limpiarResaltado();
         consola.escribir(mensajeDeVictoria(bloques), 'exito');
+        if (nivel.numero === 4 || nivel.esBonus) ofrecerMasNiveles();
+        metricas.registrarUnaVez(`n${nivel.numero}-completado`);
+        if (bloques <= nivel.par) metricas.registrarUnaVez(`n${nivel.numero}-en-par`);
       } else {
         // Que vean DÓNDE se detuvo, no sólo que se detuvo (spec §6).
         editor.resaltar(resultado.ultimaLinea, { error: true });
         consola.escribir(
           `Tu programa terminó en la línea ${resultado.ultimaLinea} y el robot no llegó a la meta. ¿Qué le faltó por hacer?`,
         );
+        metricas.registrarUnaVez(`n${nivel.numero}-sin-meta`);
+        contarFallo();
       }
     },
     alError: (fallo) => {
@@ -2607,15 +3021,130 @@ function mensajeDeVictoria(bloques) {
   return `Llegaste en ${bloques} bloques. El par es ${par}: ¿se puede decir más corto?`;
 }
 
+// --- Puerta "Quiero más niveles" (CAMBIOS-cohorte-0 §5) ---------------------
+//
+// Mide si quieren más sin prometer nada que no exista: al primer clic dice la
+// verdad y los manda a opinar.
+
+function enlaceFormulario(texto) {
+  return crearEnlace(texto, URL_FORMULARIO, () => metricas.registrarUnaVez('feedback-clic'));
+}
+
+function enlaceCanal(texto) {
+  return crearEnlace(texto, URL_CANAL, () => metricas.registrarUnaVez('canal-clic'));
+}
+
+function ofrecerMasNiveles() {
+  const boton = document.createElement('button');
+  boton.type = 'button';
+  boton.className = 'boton';
+  boton.textContent = 'Quiero más niveles →';
+  boton.addEventListener('click', () => {
+    metricas.registrarUnaVez('mas-niveles-clic');
+    const respuesta = document.createElement('p');
+    respuesta.className = 'puerta';
+    respuesta.append(
+      'Todavía no existen — tú decides si los construyo. Cuéntame qué te pareció y vota en el canal qué sigue. ',
+      enlaceFormulario('Dar mi opinión (1 min)'),
+    );
+    if (URL_CANAL) {
+      // El link del canal sólo abre en la app de Instagram: en computadora lleva
+      // a una página que pide el celular. Ahí se dice dónde está, sin link.
+      const tactil = document.createElement('span');
+      tactil.className = 'solo-tactil';
+      tactil.append(' · ', enlaceCanal('Ir al canal'));
+      const compu = document.createElement('span');
+      compu.className = 'solo-compu';
+      compu.textContent = 'El canal se abre desde la app de Instagram en tu celular.';
+      respuesta.append(tactil, compu);
+    }
+    boton.replaceWith(respuesta);
+  });
+  consola.agregar(boton);
+}
+
 function reportarFallo(fallo) {
   fijarBotones(false);
   if (!esErrorDelJuego(fallo)) throw fallo;
+  metricas.registrarUnaVez(`n${nivel.numero}-error-${fallo.codigo}`);
   consola.escribir(fallo.mensaje, 'error');
   if (fallo.linea) editor.resaltar(fallo.linea, { error: true });
   else editor.limpiarResaltado();
+  contarFallo();
 }
 
+// Se llama DESPUÉS de escribir el mensaje del fallo: el empujón va como anexo
+// debajo de ese mensaje, y el siguiente escribir() lo borra.
+function contarFallo() {
+  const fallos = (fallosPorNivel.get(nivel.numero) ?? 0) + 1;
+  fallosPorNivel.set(nivel.numero, fallos);
+  // El contador no se reinicia: el empujón sale una vez por nivel y por sesión.
+  if (fallos !== 3) return;
+
+  metricas.registrarUnaVez(`n${nivel.numero}-3-fallos`);
+  // La frase que el SPEC §10 le da al guía: enseña a depurar, no sólo a pasar.
+  const empujon = document.createElement('p');
+  empujon.className = 'nota-consola';
+  empujon.textContent =
+    '¿Y si lo corres en Cámara lenta? Mira en qué línea el personaje hace algo que no esperabas.';
+  consola.agregar(empujon);
+  $('pista-btn').hidden = false;
+  $('pista-btn').classList.add('resaltado');
+}
+
+// --- Pistas escalonadas (CAMBIOS-cohorte-0 §7b) -----------------------------
+//
+// No se ofrecen antes de que hagan falta (SPEC §10): el botón aparece, resaltado,
+// al tercer fallo en el nivel y ahí se queda. Cada toque abre una más.
+
+function mostrarPista() {
+  $('pista-btn').classList.remove('resaltado');
+
+  const vistas = Math.min((pistasVistas.get(nivel.numero) ?? 0) + 1, nivel.pistas.length);
+  const yaEranTodas = pistasVistas.get(nivel.numero) === nivel.pistas.length;
+  pistasVistas.set(nivel.numero, vistas);
+  metricas.registrarUnaVez(`n${nivel.numero}-pista-${vistas}`);
+
+  const texto = `Pista ${vistas} de ${nivel.pistas.length} · ${nivel.pistas[vistas - 1]}`;
+  // Debajo del mensaje actual, sin borrar el error que están leyendo.
+  if (!nodoPista?.isConnected) {
+    nodoPista = document.createElement('p');
+    nodoPista.className = 'nota-consola';
+    consola.agregar(nodoPista);
+  }
+  nodoPista.textContent = yaEranTodas ? `Esas son todas las pistas de este nivel. ${texto}` : texto;
+  editor.enfocar();
+}
+
+// --- Aviso en pantallas angostas (CAMBIOS-cohorte-0 §7) -------------------
+//
+// Sólo sugiere: el juego no se bloquea en el celular. El CSS decide cuándo se ve.
+
+$('cerrar-aviso').addEventListener('click', () => {
+  $('aviso-movil').hidden = true;
+});
+$('copiar-link').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $('copiar-link').textContent = '¡Copiado!';
+  } catch {
+    // Navegadores dentro de apps a veces no dejan copiar: se muestra el link
+    // para copiarlo a mano.
+    const url = document.createElement('span');
+    url.className = 'aviso-url';
+    url.textContent = location.href;
+    $('copiar-link').replaceWith(url);
+  }
+});
+
 // --- Controles ------------------------------------------------------------
+
+$('pista-btn').addEventListener('click', mostrarPista);
+
+// Link permanente al formulario (CAMBIOS-cohorte-0 §6): también quien abandona
+// debe poder opinar, y es justo quien más información da.
+$('opinion').href = URL_FORMULARIO;
+$('opinion').addEventListener('click', () => metricas.registrarUnaVez('feedback-clic'));
 
 $('correr').addEventListener('click', () => correr(VELOCIDAD_NORMAL, 'correr'));
 $('lento').addEventListener('click', () => correr(VELOCIDAD_LENTA, 'lento'));
@@ -2643,6 +3172,8 @@ window.addEventListener('resize', () => redibujar());
 
 cargarNivel(1, { conservarBorrador: false });
 actualizarMarcador();
+metricas.registrarVisita();
+metricas.registrarDiaDeVisita();
 return {  };
 })();
 })();

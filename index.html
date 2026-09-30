@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="src/styles.css" />
   </head>
   <body>
+    <div class="aviso-movil" id="aviso-movil" role="note">
+      <span class="aviso-texto">Esto se disfruta más en una computadora. Si puedes, ábrelo ahí.</span>
+      <button class="boton" id="copiar-link" type="button">Copiar link</button>
+      <button class="aviso-cerrar" id="cerrar-aviso" type="button" aria-label="Cerrar aviso">×</button>
+    </div>
+
     <div class="marco">
       <header class="barra">
         <div class="marca">LABERINTO</div>
@@ -61,11 +67,20 @@
         <button class="boton" id="correr">Correr</button>
         <button class="boton" id="lento">Cámara lenta</button>
         <button class="boton boton-fantasma" id="reiniciar">Reiniciar</button>
+        <button class="boton boton-fantasma" id="pista-btn" type="button" hidden>¿Atorado? Pista</button>
         <div class="separador"></div>
         <div class="marcador" id="marcador"></div>
       </div>
 
       <div class="consola" id="consola">Escribe tu programa y dale a Correr.</div>
+
+      <footer class="pie">
+        <span>Sin cuentas ni cookies. Contamos visitas de forma anónima para mejorar el juego.</span>
+        <span aria-hidden="true">·</span>
+        <a class="enlace" id="opinion" target="_blank" rel="noopener">¿Qué te pareció?</a>
+        <span aria-hidden="true">·</span>
+        <span>Hecho por @_antonio.selvas</span>
+      </footer>
     </div>
 
     <script type="module" src="src/main.js"></script>
