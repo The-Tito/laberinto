@@ -3,9 +3,9 @@
 
 export const URL_FORMULARIO = 'https://tally.so/r/kdMyER';
 
-// Pendiente: link de invitación al canal. Mientras esté vacío, "Ir al canal" no
-// se muestra: mejor no ofrecerlo que mandar a alguien a un lugar equivocado.
-export const URL_CANAL = '';
+// Invitación al canal de Instagram. Si se vacía, "Ir al canal" deja de
+// mostrarse: mejor no ofrecerlo que mandar a alguien a un lugar equivocado.
+export const URL_CANAL = 'https://www.instagram.com/channel/aJUxgoM_pkdEi1lK/';
 
 /**
  * Link que abre en otra pestaña, para no sacarlos del juego a media partida.
