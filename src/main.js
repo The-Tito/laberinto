@@ -96,6 +96,9 @@ function cargarNivel(numero, { conservarBorrador = true } = {}) {
 
   paleta.mostrar(nivel.permitidos, nivel.esBonus ? ['repetirHastaLaMeta'] : []);
   pintarNavegacion();
+  // Las pistas no se ofrecen antes de que hagan falta (SPEC §10): el botón sólo
+  // existe en los niveles donde ya fallaron 3 veces.
+  $('pista-btn').hidden = (fallosPorNivel.get(nivel.numero) ?? 0) < 3;
   $('pista-btn').classList.remove('resaltado');
 
   editor.limpiarResaltado();
@@ -282,13 +285,14 @@ function contarFallo() {
   empujon.textContent =
     '¿Y si lo corres en Cámara lenta? Mira en qué línea el personaje hace algo que no esperabas.';
   consola.agregar(empujon);
+  $('pista-btn').hidden = false;
   $('pista-btn').classList.add('resaltado');
 }
 
 // --- Pistas escalonadas (CAMBIOS-cohorte-0 §7b) -----------------------------
 //
-// No se ofrecen antes de que hagan falta (SPEC §10): el botón siempre está, pero
-// sólo se resalta al tercer fallo. Cada toque abre una más, de menos a más.
+// No se ofrecen antes de que hagan falta (SPEC §10): el botón aparece, resaltado,
+// al tercer fallo en el nivel y ahí se queda. Cada toque abre una más.
 
 function mostrarPista() {
   $('pista-btn').classList.remove('resaltado');
