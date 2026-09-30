@@ -8,7 +8,7 @@
 // servidor local, con ?nometricas o sin red, esto se apaga en silencio.
 //
 // Sólo se mide en el dominio publicado: las vistas previas de Cloudflare
-// (<rama>.juego-laberinto.pages.dev) también son https, y medirlas mezclaría las
+// (<rama>.juego-laberintos.pages.dev) también son https, y medirlas mezclaría las
 // pruebas con los datos del canal.
 //
 // Para probar a mano: ?depurar-metricas escribe cada evento en la consola del
@@ -25,7 +25,7 @@
 //   rnd ignorado; sólo evita caché
 
 export const CODIGO_GOATCOUNTER = 'antonio-selvas';
-export const DOMINIO_PUBLICADO = 'juego-laberinto.pages.dev';
+export const DOMINIO_PUBLICADO = 'juego-laberintos.pages.dev';
 
 /** Envío real: el pixel de GoatCounter. Los fallos llegan como evento, no lanzan. */
 function enviarConImagen(url) {
