@@ -254,7 +254,17 @@ function ofrecerMasNiveles() {
       'Todavía no existen — tú decides si los construyo. Cuéntame qué te pareció y vota en el canal qué sigue. ',
       enlaceFormulario('Dar mi opinión (1 min)'),
     );
-    if (URL_CANAL) respuesta.append(' · ', enlaceCanal('Ir al canal'));
+    if (URL_CANAL) {
+      // El link del canal sólo abre en la app de Instagram: en computadora lleva
+      // a una página que pide el celular. Ahí se dice dónde está, sin link.
+      const tactil = document.createElement('span');
+      tactil.className = 'solo-tactil';
+      tactil.append(' · ', enlaceCanal('Ir al canal'));
+      const compu = document.createElement('span');
+      compu.className = 'solo-compu';
+      compu.textContent = 'El canal se abre desde la app de Instagram en tu celular.';
+      respuesta.append(tactil, compu);
+    }
     boton.replaceWith(respuesta);
   });
   consola.agregar(boton);

@@ -578,6 +578,26 @@ button {
   margin: 0;
 }
 
+/* El canal de Instagram sólo se abre en la app: el link, sólo en pantallas táctiles. */
+.solo-tactil {
+  display: none;
+}
+
+.solo-compu {
+  display: block;
+  margin-top: 4px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .solo-tactil {
+    display: inline;
+  }
+
+  .solo-compu {
+    display: none;
+  }
+}
+
 /* Empujón y pistas: separados del mensaje con una regla fina, para que no se
    lean como parte del error. */
 .nota-consola {
