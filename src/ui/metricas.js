@@ -23,6 +23,16 @@
 //   e   true si es evento
 //   r   referente · q  query de la página (campañas) · s  "ancho,alto,escala"
 //   rnd ignorado; sólo evita caché
+//
+// Observado en producción (v1.1.0, 30 sep 2026), para leer bien el panel:
+//   - ?ref=canal aparece en "Top referrers" como «canal», no en "Campaigns":
+//     GoatCounter toma `ref` como referente.
+//   - "Visits" suma visitas y eventos; las personas que abrieron el juego son
+//     la fila "/" de Pages.
+//   - "Sizes" (celular o computadora) sólo sale de las visitas; los eventos no
+//     llevan `s` y aparecen como (unknown).
+//   - Con Brave (escudos activos), uBlock y similares no sale ninguna petición:
+//     las cifras quedan por debajo de la realidad. Brave aparece como "Chrome".
 
 export const CODIGO_GOATCOUNTER = 'antonio-selvas';
 export const DOMINIO_PUBLICADO = 'juego-laberintos.pages.dev';
@@ -87,7 +97,7 @@ export function crearMetricas({
     }
   }
 
-  /** Pageview al abrir. `q` lleva el ?ref=canal para separar la campaña. */
+  /** Pageview al abrir. `q` lleva el ?ref=canal: el panel lo muestra como referente. */
   function registrarVisita() {
     mandar({
       p: ubicacion?.pathname || '/',
