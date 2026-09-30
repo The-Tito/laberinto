@@ -7,7 +7,7 @@ import { crearMetricas } from '../src/ui/metricas.js';
 
 const PUBLICADA = {
   protocol: 'https:',
-  hostname: 'juego-laberinto.pages.dev',
+  hostname: 'juego-laberintos.pages.dev',
   pathname: '/',
   search: '?ref=canal',
 };
@@ -69,7 +69,7 @@ test('§8.2 · registrar no hace nada fuera de https', () => {
 });
 
 test('no mide en las vistas previas ni en otros dominios, aunque sean https', () => {
-  for (const hostname of ['release-1-1-0.juego-laberinto.pages.dev', 'a1b2c3.juego-laberinto.pages.dev', 'copia.ejemplo.com']) {
+  for (const hostname of ['release-1-1-0.juego-laberintos.pages.dev', 'a1b2c3.juego-laberintos.pages.dev', 'copia.ejemplo.com']) {
     const { metricas, urls } = conEspia({ ubicacion: { ...PUBLICADA, hostname } });
     metricas.registrar('n1-completado');
     metricas.registrarVisita();

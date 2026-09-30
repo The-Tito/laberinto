@@ -74,7 +74,7 @@ test('un registro dañado vuelve a empezar en 1', () => {
 test('visita-dia-2 y visita-dia-3-mas sólo salen el día en que sube el contador', () => {
   const urls = [];
   const metricas = crearMetricas({
-    ubicacion: { protocol: 'https:', hostname: 'juego-laberinto.pages.dev', pathname: '/', search: '' },
+    ubicacion: { protocol: 'https:', hostname: 'juego-laberintos.pages.dev', pathname: '/', search: '' },
     enviar: (url) => urls.push(new URL(url).searchParams.get('p')),
   });
   const almacenamiento = almacenamientoFalso();
